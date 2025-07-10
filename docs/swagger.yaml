@@ -1,0 +1,596 @@
+basePath: /
+definitions:
+  dto.AuthResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/dto.UserResponse'
+    type: object
+  dto.CategoryResponse:
+    properties:
+      active:
+        type: boolean
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      slug:
+        type: string
+    type: object
+  dto.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.PaginationInfo:
+    properties:
+      has_next:
+        type: boolean
+      has_prev:
+        type: boolean
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  dto.ProductListResponse:
+    properties:
+      pagination:
+        $ref: '#/definitions/dto.PaginationInfo'
+      products:
+        items:
+          $ref: '#/definitions/dto.ProductResponse'
+        type: array
+    type: object
+  dto.ProductResponse:
+    properties:
+      active:
+        type: boolean
+      availability:
+        type: string
+      brand:
+        type: string
+      category:
+        type: string
+      category_model:
+        $ref: '#/definitions/dto.CategoryResponse'
+      color:
+        type: string
+      created_at:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      ean:
+        type: string
+      id:
+        type: integer
+      image:
+        type: string
+      image_url:
+        type: string
+      index:
+        type: integer
+      internal_id:
+        type: string
+      name:
+        type: string
+      price:
+        type: number
+      short_description:
+        type: string
+      size:
+        type: string
+      sku:
+        type: string
+      slug:
+        type: string
+      stock:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - first_name
+    - last_name
+    - password
+    type: object
+  dto.UpdateProfileRequest:
+    properties:
+      address:
+        type: string
+      city:
+        type: string
+      country:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      phone:
+        type: string
+      postal_code:
+        type: string
+    type: object
+  dto.UserResponse:
+    properties:
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: integer
+      last_name:
+        type: string
+      role:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: support@api.com
+    name: API Support
+  description: A high-performance Go API with authentication, products, assets management,
+    and caching. Features include product seeding from JSON, image serving, and comprehensive
+    product management.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: High Performance Go API with Assets Management
+  version: "2.0"
+paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login with email and password
+      parameters:
+      - description: Login request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login user
+      tags:
+      - auth
+  /api/auth/logout:
+    post:
+      description: Logout and invalidate session
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Logout user
+      tags:
+      - auth
+  /api/auth/profile:
+    get:
+      description: Get current user profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - auth
+    put:
+      consumes:
+      - application/json
+      description: Update current user profile
+      parameters:
+      - description: Update profile request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - auth
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user account
+      parameters:
+      - description: Register request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
+  /api/banners:
+    get:
+      consumes:
+      - application/json
+      description: Get list of available banner images with their URLs for frontend
+        display
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success - List of banner images
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get banner images
+      tags:
+      - banners
+  /api/categories:
+    get:
+      consumes:
+      - application/json
+      description: Get list of all active categories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            items:
+              $ref: '#/definitions/dto.CategoryResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get categories
+      tags:
+      - categories
+  /api/categories/{id}/products:
+    get:
+      consumes:
+      - application/json
+      description: Get products filtered by category ID with pagination
+      parameters:
+      - description: Category ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/dto.ProductListResponse'
+        "400":
+          description: Bad Request - Invalid category ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found - Category not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get products by category
+      tags:
+      - categories
+  /api/health:
+    get:
+      consumes:
+      - application/json
+      description: Check system health status including database and Redis connectivity
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success - System health status
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health check
+      tags:
+      - health
+  /api/products:
+    get:
+      consumes:
+      - application/json
+      description: Get paginated list of products with filtering and sorting options
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - description: Filter by category ID
+        in: query
+        name: category_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/dto.ProductListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get products list
+      tags:
+      - products
+  /api/products/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific product by its ID
+      parameters:
+      - description: Product ID
+        in: path
+        minimum: 1
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/dto.ProductResponse'
+        "400":
+          description: Bad Request - Invalid product ID
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found - Product not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get product by ID
+      tags:
+      - products
+  /api/products/search:
+    get:
+      consumes:
+      - application/json
+      description: Search products with advanced filters, sorting, and pagination
+      parameters:
+      - description: Search query for product name and description
+        in: query
+        name: q
+        type: string
+      - description: Category slug for filtering
+        in: query
+        name: category
+        type: string
+      - description: Minimum price filter
+        in: query
+        minimum: 0
+        name: min_price
+        type: number
+      - description: Maximum price filter
+        in: query
+        minimum: 0
+        name: max_price
+        type: number
+      - description: Sort field (name, price, created_at, etc.)
+        in: query
+        name: sort_by
+        type: string
+      - default: DESC
+        description: Sort order
+        enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_order
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/dto.ProductListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Search products
+      tags:
+      - products
+  /api/seed/clear:
+    delete:
+      consumes:
+      - application/json
+      description: Clears all products and categories from the database. This action
+        cannot be undone.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success - Products and categories cleared
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error - Failed to clear products
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Clear products data
+      tags:
+      - seed
+  /api/seed/products:
+    post:
+      consumes:
+      - application/json
+      description: Seeds the database with products from the assets/products.json
+        file. This will create categories and products with all fields including images.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success - Products seeded successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error - Failed to seed products
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Seed products from JSON
+      tags:
+      - seed
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
