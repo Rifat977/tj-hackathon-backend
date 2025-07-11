@@ -150,7 +150,7 @@ definitions:
       role:
         type: string
     type: object
-host: http://34.131.155.11
+host: 34.131.155.11
 info:
   contact:
     email: support@api.com
