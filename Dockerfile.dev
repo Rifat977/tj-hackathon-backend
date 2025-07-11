@@ -1,0 +1,36 @@
+# Development Dockerfile with hot reload
+FROM golang:1.23-alpine
+
+# Install git, ca-certificates, and air for hot reloading
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Set working directory
+WORKDIR /app
+
+# Install air for hot reloading
+RUN go install github.com/cosmtrek/air@latest
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+# Change ownership to non-root user
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 3000
+
+# Run air for hot reloading
+CMD ["air"] 

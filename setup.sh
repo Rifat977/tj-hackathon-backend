@@ -7,7 +7,7 @@ if [ ! -f .env ]; then
     echo "Creating .env file..."
     cat > .env << EOF
 # Database Configuration
-DATABASE_URL=postgres://postgres:password@localhost:5432/boilerplate?sslmode=disable
+DATABASE_URL=postgres://user:password@localhost:5432/testdb?sslmode=disable
 
 # Redis Configuration
 REDIS_URL=localhost:6379

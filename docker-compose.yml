@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # Main application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-fiber-app
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
+      - REDIS_URL=172.17.0.1:6379
+      - REDIS_PASSWORD=
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+    volumes:
+      - ./assets:/app/assets:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Additional instances for load balancing (uncomment as needed)
+  app-instance-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-fiber-app-1
+    ports:
+      - "3001:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
+      - REDIS_URL=172.17.0.1:6379
+      - REDIS_PASSWORD=
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+    volumes:
+      - ./assets:/app/assets:ro
+    restart: unless-stopped
+    profiles:
+      - load-balancing
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  app-instance-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-fiber-app-2
+    ports:
+      - "3002:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
+      - REDIS_URL=172.17.0.1:6379
+      - REDIS_PASSWORD=
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+    volumes:
+      - ./assets:/app/assets:ro
+    restart: unless-stopped
+    profiles:
+      - load-balancing
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  app-instance-3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: go-fiber-app-3
+    ports:
+      - "3003:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
+      - REDIS_URL=172.17.0.1:6379
+      - REDIS_PASSWORD=
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+    volumes:
+      - ./assets:/app/assets:ro
+    restart: unless-stopped
+    profiles:
+      - load-balancing
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Development service with hot reload
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: go-fiber-app-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
+      - REDIS_URL=172.17.0.1:6379
+      - REDIS_PASSWORD=
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+    volumes:
+      - .:/app
+      - /app/go.mod
+      - /app/go.sum
+    restart: unless-stopped
+    profiles:
+      - development
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    name: go-fiber-network 

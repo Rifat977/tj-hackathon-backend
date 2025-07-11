@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation
+README.md
+*.md
+
+# Scripts
+*.sh
+
+# Build artifacts
+main
+tmp/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment files (will be mounted or set via environment variables)
+.env
+.env.local
+.env.*.local
+
+# Test files
+*_test.go
+test_*.sh
+
+# Air configuration (for development)
+.air.toml
+
+# Linting
+.golangci.yml 
