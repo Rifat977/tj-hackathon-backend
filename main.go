@@ -52,9 +52,12 @@ func main() {
 
 	// Add CORS middleware
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
-		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
+		AllowOrigins:     config.AppConfig.ALLOWED_ORIGINS,
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+		AllowCredentials: true,
+		ExposeHeaders:    "Content-Length, Content-Type",
+		MaxAge:           86400, // 24 hours
 	}))
 
 	// Serve static files (product images, banner images)
@@ -65,7 +68,7 @@ func main() {
 
 	// Graceful shutdown
 	go func() {
-		if err := app.Listen(":3000"); err != nil {
+		if err := app.Listen(":" + config.AppConfig.PORT); err != nil {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 	}()
