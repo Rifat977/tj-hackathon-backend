@@ -42,7 +42,11 @@ func (s *ProductService) GetProducts(page, limit int, categoryID *uint) ([]model
 		return products, 0, nil
 	}
 
-	query := s.db.Model(&models.Product{}).Where("active = ?", true).Preload("CategoryModel")
+	// Optimize query with specific field selection
+	query := s.db.Model(&models.Product{}).
+		Select("id, index, name, description, short_description, brand, category, price, currency, stock, ean, color, size, availability, image, internal_id, slug, sku, category_id, active, created_at, updated_at").
+		Where("active = ?", true).
+		Preload("CategoryModel", "active = ?", true)
 
 	if categoryID != nil {
 		query = query.Where("category_id = ?", *categoryID)
@@ -78,8 +82,11 @@ func (s *ProductService) GetProductByID(id uint) (*models.Product, error) {
 		return &product, nil
 	}
 
+	// Optimize query with specific field selection
 	var product models.Product
-	err = s.db.Preload("CategoryModel").First(&product, id).Error
+	err = s.db.Select("id, index, name, description, short_description, brand, category, price, currency, stock, ean, color, size, availability, image, internal_id, slug, sku, category_id, active, created_at, updated_at").
+		Preload("CategoryModel", "active = ?", true).
+		First(&product, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +111,11 @@ func (s *ProductService) SearchProducts(query, category, minPrice, maxPrice, sor
 		return products, 0, nil
 	}
 
-	dbQuery := s.db.Model(&models.Product{}).Where("active = ?", true).Preload("CategoryModel")
+	// Optimize query with specific field selection
+	dbQuery := s.db.Model(&models.Product{}).
+		Select("id, index, name, description, short_description, brand, category, price, currency, stock, ean, color, size, availability, image, internal_id, slug, sku, category_id, active, created_at, updated_at").
+		Where("active = ?", true).
+		Preload("CategoryModel", "active = ?", true)
 
 	// Full-text search
 	if query != "" {
@@ -187,8 +198,11 @@ func (s *ProductService) GetCategories() ([]models.Category, error) {
 		}
 	}
 
+	// Optimize query with specific field selection
 	var categories []models.Category
-	err = s.db.Where("active = ?", true).Find(&categories).Error
+	err = s.db.Select("id, name, description, slug, active, created_at, updated_at").
+		Where("active = ?", true).
+		Find(&categories).Error
 	if err != nil {
 		return nil, err
 	}

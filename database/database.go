@@ -23,21 +23,39 @@ var (
 func ConnectDB() {
 	var err error
 	dsn := config.AppConfig.DB_URL
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+
+	// Optimize GORM configuration
+	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+		PrepareStmt: true, // Enable prepared statements for better performance
+		DryRun:      false,
+	})
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v", err)
 	}
 
-	// Create pgxpool for raw queries
+	// Get underlying SQL DB for connection pool configuration
+	sqlDB, err := DB.DB()
+	if err != nil {
+		log.Fatalf("Error getting SQL DB: %v", err)
+	}
+
+	// Configure connection pool for high concurrency
+	sqlDB.SetMaxOpenConns(100) // Increase for high load
+	sqlDB.SetMaxIdleConns(25)  // Keep more idle connections
+	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetConnMaxIdleTime(30 * time.Minute)
+
+	// Create pgxpool for raw queries with better configuration
 	poolConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		log.Fatalf("Error parsing pool config: %v", err)
 	}
 
-	poolConfig.MaxConns = 20
-	poolConfig.MinConns = 5
+	poolConfig.MaxConns = 50 // Increase for high load
+	poolConfig.MinConns = 10 // Keep more minimum connections
 	poolConfig.MaxConnLifetime = time.Hour
 	poolConfig.MaxConnIdleTime = 30 * time.Minute
+	poolConfig.HealthCheckPeriod = 30 * time.Second
 
 	Pool, err = pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
@@ -46,12 +64,18 @@ func ConnectDB() {
 
 	log.Println("Database Connected successfully")
 
-	// Connect to Redis
+	// Connect to Redis with optimized settings
 	Redis = redis.NewClient(&redis.Options{
-		Addr:     config.AppConfig.REDIS_URL,
-		Password: config.AppConfig.REDIS_PASSWORD,
-		DB:       0,
-		PoolSize: 10,
+		Addr:         config.AppConfig.REDIS_URL,
+		Password:     config.AppConfig.REDIS_PASSWORD,
+		DB:           0,
+		PoolSize:     20, // Increase pool size for high concurrency
+		MinIdleConns: 5,  // Keep minimum idle connections
+		MaxRetries:   3,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		PoolTimeout:  4 * time.Second,
 	})
 
 	// Test Redis connection
@@ -97,6 +121,13 @@ func createSearchIndexes() {
 		CREATE INDEX IF NOT EXISTS idx_categories_search 
 		ON categories USING gin(to_tsvector('english', name || ' ' || description))
 	`)
+
+	// Create additional performance indexes
+	DB.Exec(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_active_category ON products(active, category_id)`)
+	DB.Exec(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_price_active ON products(price, active)`)
+	DB.Exec(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_brand_active ON products(brand, active)`)
+	DB.Exec(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_created_at_active ON products(created_at DESC, active)`)
+	DB.Exec(`CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_categories_slug_active ON categories(slug, active)`)
 
 	log.Println("Search indexes created successfully")
 }
