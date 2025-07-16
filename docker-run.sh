@@ -35,7 +35,7 @@ check_docker() {
 build_if_needed() {
     if ! docker image inspect go-fiber-boilerplate-app:latest > /dev/null 2>&1; then
         echo "📦 Building Docker image..."
-        docker-compose build
+        docker compose build
     fi
 }
 
@@ -44,7 +44,7 @@ case "$1" in
         check_docker
         build_if_needed
         echo "🚀 Starting single instance on port 3000..."
-        docker-compose up -d app
+        docker compose up -d app
         echo "✅ Application is running on http://localhost:3000"
         ;;
     "load")
@@ -55,7 +55,7 @@ case "$1" in
         echo "   Instance 2: http://localhost:3001"
         echo "   Instance 3: http://localhost:3002"
         echo "   Instance 4: http://localhost:3003"
-        docker-compose --profile load-balancing up -d
+        docker compose --profile load-balancing up -d
         echo "✅ Load balancing setup complete!"
         echo "💡 You can now configure your load balancer to distribute traffic across these ports"
         ;;
@@ -63,22 +63,22 @@ case "$1" in
         check_docker
         build_if_needed
         echo "🛠️  Starting development mode with hot reload..."
-        docker-compose --profile development up -d
+        docker compose --profile development up -d
         echo "✅ Development server is running on http://localhost:3000"
         echo "🔄 Hot reload is enabled - changes will be reflected automatically"
         ;;
     "stop")
         echo "🛑 Stopping all containers..."
-        docker-compose down
+        docker compose down
         echo "✅ All containers stopped"
         ;;
     "logs")
         echo "📋 Showing logs from all containers..."
-        docker-compose logs -f
+        docker compose logs -f
         ;;
     "clean")
         echo "🧹 Cleaning up Docker resources..."
-        docker-compose down --rmi all --volumes --remove-orphans
+        docker compose down --rmi all --volumes --remove-orphans
         docker system prune -f
         echo "✅ Cleanup complete"
         ;;
@@ -86,4 +86,4 @@ case "$1" in
         show_usage
         exit 1
         ;;
-esac 
+esac
