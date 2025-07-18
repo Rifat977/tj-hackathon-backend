@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <div x-data="adminDashboard()" class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-semibold text-gray-900">
+                            <i class="fas fa-cog mr-2"></i>
+                            Admin Dashboard
+                        </h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button @click="refreshData()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            <i class="fas fa-sync-alt mr-1"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-box text-blue-500 text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Total Products</dt>
+                                    <dd class="text-lg font-medium text-gray-900" x-text="totalProducts.toLocaleString()">0</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-tags text-green-500 text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Categories</dt>
+                                    <dd class="text-lg font-medium text-gray-900" x-text="categories.length">0</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-500 text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Active Products</dt>
+                                    <dd class="text-lg font-medium text-gray-900" x-text="activeProductsCount">0</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-clock text-purple-500 text-2xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Last Updated</dt>
+                                    <dd class="text-sm font-medium text-gray-900" x-text="lastUpdated">-</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="bg-white shadow rounded-lg mb-6">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="flex flex-wrap gap-4">
+                        <button @click="showAddProductModal = true" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add Single Product
+                        </button>
+                        <button @click="showBulkUploadModal = true" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            <i class="fas fa-upload mr-2"></i>
+                            Bulk Upload
+                        </button>
+                        <button @click="deleteAllProducts()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            <i class="fas fa-trash mr-2"></i>
+                            Delete All Products
+                        </button>
+                        <button @click="clearCache()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            <i class="fas fa-broom mr-2"></i>
+                            Clear Cache
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search and Filters -->
+            <div class="bg-white shadow rounded-lg mb-6">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Search Products</label>
+                            <input type="text" x-model="searchQuery" @input.debounce.300ms="searchProducts()" 
+                                   placeholder="Search by name, description..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Category Filter</label>
+                            <select x-model="selectedCategory" @change="filterByCategory()" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">All Categories</option>
+                                <template x-for="category in categories" :key="category.id">
+                                    <option :value="category.id" x-text="category.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Items per Page</label>
+                            <select x-model="limit" @change="loadProducts()" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Table -->
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">Products</h3>
+                        <div class="text-sm text-gray-500" x-text="`Showing ${products.length} of ${totalProducts} products`"></div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div x-show="loading" class="flex justify-center items-center py-8">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    </div>
+
+                    <!-- Products Table -->
+                    <div x-show="!loading" class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="product in products" :key="product.id">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="flex-shrink-0 h-10 w-10">
+                                                    <img x-show="product.image_url" :src="product.image_url" :alt="product.name" 
+                                                         class="h-10 w-10 rounded-lg object-cover">
+                                                    <div x-show="!product.image_url" class="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
+                                                        <i class="fas fa-image text-gray-400"></i>
+                                                    </div>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-gray-900" x-text="product.name"></div>
+                                                    <div class="text-sm text-gray-500" x-text="product.sku"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="text-sm text-gray-900" x-text="product.category"></span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="text-sm text-gray-900" x-text="`$${product.price}`"></span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="text-sm text-gray-900" x-text="product.stock"></span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span x-show="product.active" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                                Active
+                                            </span>
+                                            <span x-show="!product.active" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                                Inactive
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button @click="viewProduct(product)" class="text-blue-600 hover:text-blue-900 mr-3">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button @click="editProduct(product)" class="text-indigo-600 hover:text-indigo-900 mr-3">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button @click="deleteProduct(product.id)" class="text-red-600 hover:text-red-900">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div x-show="!loading && totalPages > 1" class="flex items-center justify-between mt-6">
+                        <div class="flex-1 flex justify-between sm:hidden">
+                            <button @click="previousPage()" :disabled="currentPage <= 1" 
+                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
+                                Previous
+                            </button>
+                            <button @click="nextPage()" :disabled="currentPage >= totalPages" 
+                                    class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
+                                Next
+                            </button>
+                        </div>
+                        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm text-gray-700">
+                                    Showing <span class="font-medium" x-text="((currentPage - 1) * limit) + 1"></span> to 
+                                    <span class="font-medium" x-text="Math.min(currentPage * limit, totalProducts)"></span> of 
+                                    <span class="font-medium" x-text="totalProducts"></span> results
+                                </p>
+                            </div>
+                            <div>
+                                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                    <button @click="previousPage()" :disabled="currentPage <= 1" 
+                                            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <template x-for="page in getPageNumbers()" :key="page">
+                                        <button @click="goToPage(page)" 
+                                                :class="page === currentPage ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'"
+                                                class="relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                            <span x-text="page"></span>
+                                        </button>
+                                    </template>
+                                    <button @click="nextPage()" :disabled="currentPage >= totalPages" 
+                                            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Product Modal -->
+        <div x-show="showAddProductModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4" x-text="isEditMode ? 'Edit Product' : 'Add New Product'"></h3>
+                    <form @submit.prevent="addProduct()">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Name</label>
+                                <input type="text" x-model="newProduct.name" required 
+                                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Description</label>
+                                <textarea x-model="newProduct.description" rows="3" 
+                                          class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Price</label>
+                                <input type="number" x-model="newProduct.price" step="0.01" required 
+                                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Stock</label>
+                                <input type="number" x-model="newProduct.stock" required 
+                                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Category</label>
+                                <select x-model="newProduct.category_id" required 
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Select Category</option>
+                                    <template x-for="category in categories" :key="category.id">
+                                        <option :value="category.id" x-text="category.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" @click="showAddProductModal = false; resetForm()" 
+                                    class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button type="submit" 
+                                    class="px-4 py-2 bg-blue-500 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-600"
+                                    x-text="isEditMode ? 'Update Product' : 'Add Product'">
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Product Modal -->
+        <div x-show="showViewProductModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Product Details</h3>
+                    <div class="space-y-4" x-show="selectedProduct">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0 h-16 w-16">
+                                <img x-show="selectedProduct.image_url" :src="selectedProduct.image_url" :alt="selectedProduct.name" 
+                                     class="h-16 w-16 rounded-lg object-cover">
+                                <div x-show="!selectedProduct.image_url" class="h-16 w-16 rounded-lg bg-gray-200 flex items-center justify-center">
+                                    <i class="fas fa-image text-gray-400"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-medium text-gray-900" x-text="selectedProduct.name"></h4>
+                                <p class="text-sm text-gray-500" x-text="selectedProduct.sku"></p>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Description</label>
+                            <p class="mt-1 text-sm text-gray-900" x-text="selectedProduct.description || 'No description available'"></p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Price</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="`$${selectedProduct.price}`"></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Stock</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="selectedProduct.stock"></p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Category</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="selectedProduct.category"></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Brand</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="selectedProduct.brand || 'N/A'"></p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Status</label>
+                                <span x-show="selectedProduct.active" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                    Active
+                                </span>
+                                <span x-show="!selectedProduct.active" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                    Inactive
+                                </span>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Created</label>
+                                <p class="mt-1 text-sm text-gray-900" x-text="new Date(selectedProduct.created_at).toLocaleDateString()"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end mt-6">
+                        <button @click="showViewProductModal = false" 
+                                class="px-4 py-2 bg-gray-500 border border-transparent rounded-md text-sm font-medium text-white hover:bg-gray-600">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Upload Modal -->
+        <div x-show="showBulkUploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">Bulk Upload Products</h3>
+                        <button @click="showBulkUploadModal = false" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- File Upload Section -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Upload JSON File</label>
+                            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors">
+                                <div class="space-y-1 text-center">
+                                    <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl mb-2"></i>
+                                    <div class="flex text-sm text-gray-600">
+                                        <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                            <span>Upload a file</span>
+                                            <input id="file-upload" name="file-upload" type="file" class="sr-only" @change="handleFileUpload($event)" accept=".json">
+                                        </label>
+                                        <p class="pl-1">or drag and drop</p>
+                                    </div>
+                                    <p class="text-xs text-gray-500">JSON files only, max 100MB</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- File Info -->
+                        <div x-show="selectedFile" class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-file-json text-blue-500 mr-2"></i>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-blue-900" x-text="selectedFile.name"></p>
+                                    <p class="text-xs text-blue-700" x-text="`${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`"></p>
+                                </div>
+                                <button @click="selectedFile = null" class="text-blue-400 hover:text-blue-600">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Upload Progress -->
+                        <div x-show="uploadProgress > 0 && uploadProgress < 100" class="space-y-2">
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <span>Uploading...</span>
+                                <span x-text="`${uploadProgress}%`"></span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" :style="`width: ${uploadProgress}%`"></div>
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                <span x-show="uploadProgress < 30">Processing file...</span>
+                                <span x-show="uploadProgress >= 30 && uploadProgress < 60">Validating data...</span>
+                                <span x-show="uploadProgress >= 60 && uploadProgress < 90">Uploading to database...</span>
+                                <span x-show="uploadProgress >= 90">Finalizing...</span>
+                            </div>
+                        </div>
+
+                        <!-- Upload Status -->
+                        <div x-show="uploadStatus" class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                <div class="text-sm text-blue-800" x-text="uploadStatus"></div>
+                            </div>
+                        </div>
+
+                        <!-- Instructions -->
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                            <div class="flex">
+                                <i class="fas fa-info-circle text-yellow-500 mr-2 mt-0.5"></i>
+                                <div class="text-sm text-yellow-800">
+                                    <p class="font-medium">Expected JSON Format:</p>
+                                    <pre class="text-xs mt-1 bg-yellow-100 p-2 rounded overflow-x-auto">
+[
+  {
+    "Name": "Product Name",
+    "Price": 99.99,
+    "Category": "Category Name",
+    "Stock": 100,
+    "Description": "Product description"
+  }
+]</pre>
+                                    <p class="mt-2 text-xs">
+                                        <strong>Performance Notes:</strong><br>
+                                        • High-concurrency processing with 10 concurrent workers<br>
+                                        • Optimized COPY protocol for maximum speed<br>
+                                        • Chunked processing (200 products per chunk)<br>
+                                        • Timeout automatically calculated based on file size<br>
+                                        • Progress shown in real-time during upload<br>
+                                        • Maximum file size: 100MB
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button @click="showBulkUploadModal = false; selectedFile = null; uploadProgress = 0" 
+                                class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button @click="uploadBulkProducts()" 
+                                :disabled="!selectedFile || uploadProgress > 0" 
+                                class="px-4 py-2 bg-green-500 border border-transparent rounded-md text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span x-show="uploadProgress === 0">Upload</span>
+                            <span x-show="uploadProgress > 0 && uploadProgress < 100">Uploading...</span>
+                            <span x-show="uploadProgress === 100">Complete!</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function adminDashboard() {
+            return {
+                products: [],
+                categories: [],
+                loading: false,
+                currentPage: 1,
+                totalPages: 1,
+                totalProducts: 0,
+                limit: 20,
+                searchQuery: '',
+                selectedCategory: '',
+                showAddProductModal: false,
+                showBulkUploadModal: false,
+                selectedFile: null,
+                newProduct: {
+                    name: '',
+                    description: '',
+                    price: '',
+                    stock: '',
+                    category_id: ''
+                },
+                showViewProductModal: false,
+                selectedProduct: null,
+                isEditMode: false,
+                editingProductId: null,
+                uploadProgress: 0, // Added for bulk upload progress
+                activeProductsCount: 0, // Added for active products count
+                lastUpdated: '', // Added for last updated timestamp
+                uploadStatus: '', // Added for bulk upload status messages
+
+                init() {
+                    this.loadProducts();
+                    this.loadCategories();
+                    this.updateStatistics(); // Initial call to update statistics
+                    this.startStatisticsUpdate(); // Start updating statistics every 5 seconds
+                },
+
+                async loadProducts() {
+                    this.loading = true;
+                    try {
+                        let url = `/admin/api/products?page=${this.currentPage}&limit=${this.limit}`;
+                        if (this.searchQuery) {
+                            url += `&search=${encodeURIComponent(this.searchQuery)}`;
+                        }
+                        if (this.selectedCategory) {
+                            url += `&category_id=${this.selectedCategory}`;
+                        }
+
+                        const response = await fetch(url);
+                        const data = await response.json();
+                        
+                        this.products = data.products;
+                        this.totalProducts = data.pagination.total;
+                        this.totalPages = data.pagination.total_pages;
+                        this.updateStatistics(); // Update statistics after product load
+                    } catch (error) {
+                        console.error('Error loading products:', error);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async loadCategories() {
+                    try {
+                        const response = await fetch('/admin/api/categories');
+                        this.categories = await response.json();
+                    } catch (error) {
+                        console.error('Error loading categories:', error);
+                    }
+                },
+
+                searchProducts() {
+                    this.currentPage = 1;
+                    this.loadProducts();
+                },
+
+                filterByCategory() {
+                    this.currentPage = 1;
+                    this.loadProducts();
+                },
+
+                previousPage() {
+                    if (this.currentPage > 1) {
+                        this.currentPage--;
+                        this.loadProducts();
+                    }
+                },
+
+                nextPage() {
+                    if (this.currentPage < this.totalPages) {
+                        this.currentPage++;
+                        this.loadProducts();
+                    }
+                },
+
+                goToPage(page) {
+                    this.currentPage = page;
+                    this.loadProducts();
+                },
+
+                getPageNumbers() {
+                    const pages = [];
+                    const start = Math.max(1, this.currentPage - 2);
+                    const end = Math.min(this.totalPages, this.currentPage + 2);
+                    
+                    for (let i = start; i <= end; i++) {
+                        pages.push(i);
+                    }
+                    return pages;
+                },
+
+                refreshData() {
+                    this.loadProducts();
+                    this.loadCategories();
+                    this.updateStatistics(); // Update statistics on refresh
+                },
+
+                viewProduct(product) {
+                    this.selectedProduct = product;
+                    this.showViewProductModal = true;
+                },
+
+                editProduct(product) {
+                    // Set edit mode and populate form
+                    this.isEditMode = true;
+                    this.editingProductId = product.id;
+                    this.newProduct = {
+                        name: product.name,
+                        description: product.description || '',
+                        price: product.price,
+                        stock: product.stock,
+                        category_id: product.category_model ? product.category_model.id : ''
+                    };
+                    this.showAddProductModal = true;
+                },
+
+                async deleteProduct(productId) {
+                    if (confirm('Are you sure you want to delete this product?')) {
+                        try {
+                            const response = await fetch(`/admin/api/products/${productId}`, {
+                                method: 'DELETE'
+                            });
+                            
+                            if (response.ok) {
+                                this.loadProducts(); // Reload products to reflect deletion
+                                alert('Product deleted successfully!');
+                            } else {
+                                const errorData = await response.json();
+                                alert(`Error deleting product: ${errorData.error || 'Unknown error'}`);
+                            }
+                        } catch (error) {
+                            console.error('Error deleting product:', error);
+                            alert('Failed to delete product.');
+                        }
+                    }
+                },
+
+                async addProduct() {
+                    try {
+                        // Validate required fields
+                        if (!this.newProduct.name.trim()) {
+                            alert('Product name is required');
+                            return;
+                        }
+                        
+                        if (!this.newProduct.price || parseFloat(this.newProduct.price) <= 0) {
+                            alert('Product price must be greater than 0');
+                            return;
+                        }
+                        
+                        if (!this.newProduct.category_id) {
+                            alert('Please select a category');
+                            return;
+                        }
+
+                        // Convert string values to proper types
+                        const productData = {
+                            name: this.newProduct.name.trim(),
+                            description: this.newProduct.description.trim(),
+                            price: parseFloat(this.newProduct.price),
+                            stock: parseInt(this.newProduct.stock) || 0,
+                            category_id: parseInt(this.newProduct.category_id),
+                            active: true
+                        };
+
+                        const url = this.isEditMode ? `/admin/api/products/${this.editingProductId}` : '/admin/api/products';
+                        const method = this.isEditMode ? 'PUT' : 'POST';
+                        
+                        const response = await fetch(url, {
+                            method: method,
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(productData)
+                        });
+                        
+                        if (response.ok) {
+                            this.showAddProductModal = false;
+                            this.resetForm();
+                            this.loadProducts();
+                            const action = this.isEditMode ? 'updated' : 'added';
+                            alert(`Product ${action} successfully!`);
+                        } else {
+                            const errorData = await response.json();
+                            alert(`Error ${this.isEditMode ? 'updating' : 'adding'} product: ${errorData.error || 'Unknown error'}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error ${this.isEditMode ? 'updating' : 'adding'} product:`, error);
+                        alert(`Failed to ${this.isEditMode ? 'update' : 'add'} product.`);
+                    }
+                },
+
+                resetForm() {
+                    this.newProduct = { name: '', description: '', price: '', stock: '', category_id: '' };
+                    this.isEditMode = false;
+                    this.editingProductId = null;
+                },
+
+                handleFileUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    // Validate file type
+                    if (!file.name.toLowerCase().endsWith('.json')) {
+                        alert('Please select a JSON file.');
+                        event.target.value = '';
+                        return;
+                    }
+
+                    // Validate file size (100MB limit)
+                    if (file.size > 100 * 1024 * 1024) {
+                        alert('File size must be less than 100MB.');
+                        event.target.value = '';
+                        return;
+                    }
+
+                    this.selectedFile = file;
+                },
+
+                async uploadBulkProducts() {
+                    if (!this.selectedFile) return;
+
+                    const formData = new FormData();
+                    formData.append('file', this.selectedFile);
+
+                    try {
+                        // Reset progress and status
+                        this.uploadProgress = 0;
+                        this.uploadStatus = 'Starting upload...';
+                        
+                        // Calculate expected processing time based on file size
+                        const fileSizeMB = this.selectedFile.size / (1024 * 1024);
+                        const expectedTimeSeconds = Math.max(60, fileSizeMB * 0.5); // 0.5 seconds per MB with high concurrency
+                        
+                        // Simulate more realistic progress for high-concurrency processing
+                        const progressInterval = setInterval(() => {
+                            if (this.uploadProgress < 85) {
+                                // Adaptive progress based on file size with high-concurrency expectations
+                                let increment;
+                                if (fileSizeMB > 50) {
+                                    // Large files: faster progress with high concurrency
+                                    increment = 2 + Math.random() * 3;
+                                    this.uploadStatus = `Processing large file (${fileSizeMB.toFixed(1)} MB) with high concurrency...`;
+                                } else if (fileSizeMB > 10) {
+                                    // Medium files: very fast progress
+                                    increment = 3 + Math.random() * 4;
+                                    this.uploadStatus = `Processing file (${fileSizeMB.toFixed(1)} MB) with 10 concurrent workers...`;
+                                } else {
+                                    // Small files: very fast progress
+                                    increment = 4 + Math.random() * 5;
+                                    this.uploadStatus = `Processing file with high concurrency...`;
+                                }
+                                this.uploadProgress += increment;
+                            }
+                        }, 1000);
+
+                        const response = await fetch('/admin/api/products/bulk', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        clearInterval(progressInterval);
+                        this.uploadProgress = 100;
+                        this.uploadStatus = 'Upload completed!';
+                        
+                        // Try to parse response as JSON
+                        let result;
+                        const contentType = response.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            result = await response.json();
+                        } else {
+                            // Handle non-JSON responses (like timeout messages)
+                            const textResponse = await response.text();
+                            throw new Error(`Server returned: ${textResponse}`);
+                        }
+                        
+                        if (response.ok) {
+                            // Show detailed results in a better format
+                            let message = `🚀 Bulk upload completed!\n\n`;
+                            message += `✅ Successfully uploaded: ${result.uploaded.toLocaleString()} products\n`;
+                            message += `❌ Failed: ${result.failed.toLocaleString()} products\n`;
+                            message += `📊 Total processed: ${result.total.toLocaleString()} products\n`;
+                            
+                            if (result.uploaded > 0) {
+                                const successRate = ((result.uploaded / result.total) * 100).toFixed(1);
+                                message += `📈 Success rate: ${successRate}%\n`;
+                            }
+                            
+                            if (result.timeout) {
+                                message += `⏱️ Timeout: ${result.timeout} seconds\n`;
+                            }
+                            
+                            if (result.errors && result.errors.length > 0) {
+                                message += `\n⚠️ Errors encountered:\n`;
+                                const errorCount = Math.min(result.errors.length, 3);
+                                for (let i = 0; i < errorCount; i++) {
+                                    message += `• ${result.errors[i]}\n`;
+                                }
+                                if (result.errors.length > 3) {
+                                    message += `... and ${result.errors.length - 3} more errors\n`;
+                                }
+                            }
+                            
+                            // Close modal and refresh data
+                            setTimeout(() => {
+                                this.showBulkUploadModal = false;
+                                this.selectedFile = null;
+                                this.uploadProgress = 0;
+                                this.uploadStatus = '';
+                                this.loadProducts();
+                                alert(message);
+                            }, 1000);
+                        } else {
+                            // Handle error responses
+                            if (response.status === 408) {
+                                // Timeout error
+                                let timeoutMessage = `⏰ Upload timed out!\n\n`;
+                                timeoutMessage += `📁 File size: ${(this.selectedFile.size / 1024 / 1024).toFixed(2)} MB\n`;
+                                if (result.timeout_seconds) {
+                                    timeoutMessage += `⏱️ Timeout after: ${result.timeout_seconds} seconds\n`;
+                                }
+                                timeoutMessage += `\n💡 Suggestions:\n`;
+                                timeoutMessage += `• Try uploading a smaller file\n`;
+                                timeoutMessage += `• Split your data into multiple files\n`;
+                                timeoutMessage += `• Contact support for large datasets\n`;
+                                throw new Error(timeoutMessage);
+                            } else {
+                                // Other errors
+                                throw new Error(result.error || result.message || 'Upload failed');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error uploading products:', error);
+                        
+                        // Reset progress immediately on error
+                        this.uploadProgress = 0;
+                        this.uploadStatus = error.message || 'Upload failed due to an error.';
+                        
+                        // Show error message
+                        alert(`❌ Upload failed: ${error.message || 'Unknown error occurred'}`);
+                    } finally {
+                        // Reset progress after a delay
+                        setTimeout(() => {
+                            this.uploadProgress = 0;
+                            this.uploadStatus = '';
+                        }, 2000);
+                    }
+                },
+
+                async deleteAllProducts() {
+                    if (confirm('Are you sure you want to delete all products? This action cannot be undone.')) {
+                        try {
+                            const response = await fetch('/admin/api/products/bulk-delete', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+
+                            if (response.ok) {
+                                this.loadProducts(); // Reload products to reflect deletion
+                                alert('All products deleted successfully!');
+                            } else {
+                                const errorData = await response.json();
+                                alert(`Error deleting products: ${errorData.message || 'Unknown error'}`);
+                            }
+                        } catch (error) {
+                            console.error('Error deleting all products:', error);
+                            alert('Failed to delete all products.');
+                        }
+                    }
+                },
+
+                async clearCache() {
+                    if (confirm('Are you sure you want to clear the cache? This will reload all products and categories from the database.')) {
+                        try {
+                            const response = await fetch('/admin/api/cache/clear', {
+                                method: 'POST'
+                            });
+                            if (response.ok) {
+                                alert('Cache cleared successfully!');
+                                this.loadProducts();
+                                this.loadCategories();
+                            } else {
+                                const errorData = await response.json();
+                                alert(`Error clearing cache: ${errorData.message || 'Unknown error'}`);
+                            }
+                        } catch (error) {
+                            console.error('Error clearing cache:', error);
+                            alert('Failed to clear cache.');
+                        }
+                    }
+                },
+
+                updateStatistics() {
+                    this.activeProductsCount = this.products.filter(p => p.active).length;
+                    this.lastUpdated = new Date().toLocaleDateString(); // Simple placeholder
+                },
+
+                startStatisticsUpdate() {
+                    setInterval(() => {
+                        this.updateStatistics();
+                    }, 5000); // Update every 5 seconds
+                }
+            }
+        }
+    </script>
+</body>
+</html> 

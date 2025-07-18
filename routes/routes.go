@@ -25,4 +25,5 @@ func SetupRoutesApp(app *fiber.App) {
 	routes.SetupHealthRoutes(app)
 	routes.SetupSeedRoutes(app)
 	routes.SetupBannerRoutes(app)
+	routes.SetupAdminRoutes(app)
 }

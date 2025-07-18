@@ -40,10 +40,10 @@ func ConnectDB() {
 	}
 
 	// Configure connection pool for high concurrency
-	sqlDB.SetMaxOpenConns(100) // Increase for high load
-	sqlDB.SetMaxIdleConns(25)  // Keep more idle connections
-	sqlDB.SetConnMaxLifetime(time.Hour)
-	sqlDB.SetConnMaxIdleTime(30 * time.Minute)
+	sqlDB.SetMaxOpenConns(config.AppConfig.DBMaxOpenConns)
+	sqlDB.SetMaxIdleConns(config.AppConfig.DBMaxIdleConns)
+	sqlDB.SetConnMaxLifetime(config.AppConfig.DBConnMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(config.AppConfig.DBConnMaxIdleTime)
 
 	// Create pgxpool for raw queries with better configuration
 	poolConfig, err := pgxpool.ParseConfig(dsn)
@@ -51,10 +51,10 @@ func ConnectDB() {
 		log.Fatalf("Error parsing pool config: %v", err)
 	}
 
-	poolConfig.MaxConns = 50 // Increase for high load
-	poolConfig.MinConns = 10 // Keep more minimum connections
-	poolConfig.MaxConnLifetime = time.Hour
-	poolConfig.MaxConnIdleTime = 30 * time.Minute
+	poolConfig.MaxConns = int32(config.AppConfig.DBMaxOpenConns)
+	poolConfig.MinConns = int32(config.AppConfig.DBMaxIdleConns / 2) // Half of max idle
+	poolConfig.MaxConnLifetime = config.AppConfig.DBConnMaxLifetime
+	poolConfig.MaxConnIdleTime = config.AppConfig.DBConnMaxIdleTime
 	poolConfig.HealthCheckPeriod = 30 * time.Second
 
 	Pool, err = pgxpool.NewWithConfig(context.Background(), poolConfig)
@@ -72,10 +72,10 @@ func ConnectDB() {
 		PoolSize:     20, // Increase pool size for high concurrency
 		MinIdleConns: 5,  // Keep minimum idle connections
 		MaxRetries:   3,
-		DialTimeout:  5 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-		PoolTimeout:  4 * time.Second,
+		DialTimeout:  config.AppConfig.RedisDialTimeout,
+		ReadTimeout:  config.AppConfig.RedisReadTimeout,
+		WriteTimeout: config.AppConfig.RedisWriteTimeout,
+		PoolTimeout:  config.AppConfig.RedisPoolTimeout,
 	})
 
 	// Test Redis connection

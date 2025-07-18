@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -44,10 +43,10 @@ func main() {
 	app := fiber.New(fiber.Config{
 		AppName:      "High Performance API",
 		ServerHeader: "Go-Fiber",
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
-		BodyLimit:    10 * 1024 * 1024, // 10MB
+		ReadTimeout:  config.AppConfig.ReadTimeout,
+		WriteTimeout: config.AppConfig.WriteTimeout,
+		IdleTimeout:  config.AppConfig.IdleTimeout,
+		BodyLimit:    int(config.AppConfig.BodyLimit),
 	})
 
 	// Add CORS middleware
