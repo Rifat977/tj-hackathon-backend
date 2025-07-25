@@ -34,11 +34,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.6'    # Reduced from 1.0
-          memory: 512M
+          cpus: '0.7'    # Updated to 0.7 CPU
+          memory: 768M   # Updated to 768MB RAM
         reservations:
-          cpus: '0.2'    # Reduced from 0.25
-          memory: 256M
+          cpus: '0.3'    # Increased reservation
+          memory: 384M   # Increased reservation
     networks:
       - go-fiber-network
 
@@ -75,15 +75,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'    # Reduced from 0.5
-          memory: 512M   # Increased from 256M
+          cpus: '0.3'    # Updated to 0.3 CPU
+          memory: 512M   # Updated to 512MB RAM
         reservations:
           cpus: '0.1'
-          memory: 256M   # Increased from 128M
+          memory: 256M
     networks:
       - go-fiber-network
 
-  # Main application service - Optimized for bulk upload
+  # Main application service - Primary bulk upload handler
   app:
     build:
       context: .
@@ -97,13 +97,13 @@ services:
       - REDIS_URL=redis:6379
       - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      # Optimize for bulk upload
-      - DB_MAX_OPEN_CONNS=100
-      - DB_MAX_IDLE_CONNS=25
+      # Optimize for bulk upload - Primary handler
+      - DB_MAX_OPEN_CONNS=150
+      - DB_MAX_IDLE_CONNS=30
       - DB_CONN_MAX_LIFETIME=1h
       - DB_CONN_MAX_IDLE_TIME=30m
-      - REDIS_POOL_SIZE=20
-      - REDIS_MIN_IDLE_CONNS=5
+      - REDIS_POOL_SIZE=30
+      - REDIS_MIN_IDLE_CONNS=8
       # HTTP timeouts for large bulk uploads
       - READ_TIMEOUT=10m
       - WRITE_TIMEOUT=15m
@@ -128,15 +128,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'    # Reduced from 1.0 - main instance gets more resources
-          memory: 768M   # Increased from 512M for bulk operations
+          cpus: '0.6'    # Updated to 0.6 CPU - Primary bulk upload handler
+          memory: 768M   # Updated to 768MB RAM
         reservations:
-          cpus: '0.2'    # Reduced from 0.25
-          memory: 512M   # Increased from 256M
+          cpus: '0.3'    # Increased reservation for primary
+          memory: 384M   # Increased reservation for primary
     networks:
       - go-fiber-network
 
-  # Additional instances for load balancing - Reduced resources
+  # Secondary instance for load balancing - Minimal resources
   app-instance-1:
     build:
       context: .
@@ -150,7 +150,7 @@ services:
       - REDIS_URL=redis:6379
       - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      # Reduced connection pools for secondary instances
+      # Minimal connection pools for secondary instance
       - DB_MAX_OPEN_CONNS=50
       - DB_MAX_IDLE_CONNS=10
       - DB_CONN_MAX_LIFETIME=1h
@@ -183,121 +183,14 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'    # Reduced from 1.0 - secondary instance
-          memory: 384M   # Reduced from 512M
+          cpus: '0.2'    # Updated to 0.2 CPU - Secondary instance
+          memory: 256M   # Updated to 256MB RAM
         reservations:
-          cpus: '0.1'    # Reduced from 0.25
-          memory: 256M   # Reduced from 256M
-    networks:
-      - go-fiber-network
-
-  app-instance-2:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: go-fiber-app-2
-    ports:
-      - "3002:3000"
-    environment:
-      - PORT=3000
-      - DATABASE_URL=postgresql://user:password@postgres:5432/testdb?sslmode=disable
-      - REDIS_URL=redis:6379
-      - REDIS_PASSWORD=your_redis_password
-      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      # Minimal resources for last instance
-      - DB_MAX_OPEN_CONNS=30
-      - DB_MAX_IDLE_CONNS=5
-      - DB_CONN_MAX_LIFETIME=1h
-      - DB_CONN_MAX_IDLE_TIME=30m
-      - REDIS_POOL_SIZE=5
-      - REDIS_MIN_IDLE_CONNS=1
-      # HTTP timeouts for large bulk uploads
-      - READ_TIMEOUT=10m
-      - WRITE_TIMEOUT=15m
-      - IDLE_TIMEOUT=20m
-      - BODY_LIMIT=524288000
-    volumes:
-      - ./assets:/app/assets:ro
-      - ./views:/app/views:ro
-      - app-logs-2:/app/logs
-    restart: unless-stopped
-    profiles:
-      - load-balancing
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--timeout=3", "http://localhost:3000/api/health"]
-      interval: 20s
-      timeout: 5s
-      retries: 3
-      start_period: 40s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.2'    # Minimal CPU for last instance
-          memory: 256M   # Minimal memory for last instance
-        reservations:
-          cpus: '0.05'   # Minimal reservation
+          cpus: '0.1'    # Minimal reservation
           memory: 128M   # Minimal reservation
     networks:
       - go-fiber-network
 
-  app-instance-3:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: go-fiber-app-3
-    ports:
-      - "3003:3000"
-    environment:
-      - PORT=3000
-      - DATABASE_URL=postgresql://user:password@postgres:5432/testdb?sslmode=disable
-      - REDIS_URL=redis:6379
-      - REDIS_PASSWORD=your_redis_password
-      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      # Minimal resources for last instance
-      - DB_MAX_OPEN_CONNS=30
-      - DB_MAX_IDLE_CONNS=5
-      - DB_CONN_MAX_LIFETIME=1h
-      - DB_CONN_MAX_IDLE_TIME=30m
-      - REDIS_POOL_SIZE=5
-      - REDIS_MIN_IDLE_CONNS=1
-      # HTTP timeouts for large bulk uploads
-      - READ_TIMEOUT=10m
-      - WRITE_TIMEOUT=15m
-      - IDLE_TIMEOUT=20m
-      - BODY_LIMIT=524288000
-    volumes:
-      - ./assets:/app/assets:ro
-      - ./views:/app/views:ro
-      - app-logs-3:/app/logs
-    restart: unless-stopped
-    profiles:
-      - load-balancing
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--timeout=3", "http://localhost:3000/api/health"]
-      interval: 20s
-      timeout: 5s
-      retries: 3
-      start_period: 40s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.2'    # Minimal CPU for last instance
-          memory: 256M   # Minimal memory for last instance
-        reservations:
-          cpus: '0.05'   # Minimal reservation
-          memory: 128M   # Minimal reservation
-    networks:
-      - go-fiber-network
 
   # Development service with hot reload
   app-dev:
@@ -361,10 +254,6 @@ volumes:
   app-logs:
     driver: local
   app-logs-1:
-    driver: local
-  app-logs-2:
-    driver: local
-  app-logs-3:
     driver: local
   dev-logs:
     driver: local 
