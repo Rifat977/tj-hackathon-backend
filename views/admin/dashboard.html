@@ -70,22 +70,6 @@
                     <div class="p-5">
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
-                                <i class="fas fa-check-circle text-green-500 text-2xl"></i>
-                            </div>
-                            <div class="ml-5 w-0 flex-1">
-                                <dl>
-                                    <dt class="text-sm font-medium text-gray-500 truncate">Active Products</dt>
-                                    <dd class="text-lg font-medium text-gray-900" x-text="activeProductsCount">0</dd>
-                                </dl>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white overflow-hidden shadow rounded-lg">
-                    <div class="p-5">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0">
                                 <i class="fas fa-clock text-purple-500 text-2xl"></i>
                             </div>
                             <div class="ml-5 w-0 flex-1">
@@ -174,6 +158,7 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
@@ -185,6 +170,9 @@
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <template x-for="product in products" :key="product.id">
                                     <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm font-medium text-gray-900" x-text="product.id"></div>
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
                                                 <div class="flex-shrink-0 h-10 w-10">
@@ -237,6 +225,10 @@
                     <!-- Pagination -->
                     <div x-show="!loading && totalPages > 1" class="flex items-center justify-between mt-6">
                         <div class="flex-1 flex justify-between sm:hidden">
+                            <button @click="goToPage(1)" :disabled="currentPage <= 1" 
+                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
+                                First
+                            </button>
                             <button @click="previousPage()" :disabled="currentPage <= 1" 
                                     class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
                                 Previous
@@ -245,6 +237,27 @@
                                     class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
                                 Next
                             </button>
+                            <button @click="goToPage(totalPages)" :disabled="currentPage >= totalPages" 
+                                    class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
+                                Last
+                            </button>
+                        </div>
+                        <!-- Mobile Page Jump -->
+                        <div class="sm:hidden mt-4 flex justify-center">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm text-gray-500">Page:</span>
+                                <input type="number" 
+                                       x-model="jumpToPage" 
+                                       @keyup.enter="jumpToPageNumber()"
+                                       min="1" 
+                                       :max="totalPages"
+                                       class="w-16 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Page">
+                                <button @click="jumpToPageNumber()" 
+                                        class="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                    Go
+                                </button>
+                            </div>
                         </div>
                         <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                             <div>
@@ -256,10 +269,21 @@
                             </div>
                             <div>
                                 <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                    <!-- First Page Button -->
+                                    <button @click="goToPage(1)" :disabled="currentPage <= 1" 
+                                            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                                            title="Go to first page">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </button>
+                                    
+                                    <!-- Previous Page Button -->
                                     <button @click="previousPage()" :disabled="currentPage <= 1" 
-                                            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                                            class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                                            title="Go to previous page">
                                         <i class="fas fa-chevron-left"></i>
                                     </button>
+                                    
+                                    <!-- Page Numbers -->
                                     <template x-for="page in getPageNumbers()" :key="page">
                                         <button @click="goToPage(page)" 
                                                 :class="page === currentPage ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'"
@@ -267,11 +291,37 @@
                                             <span x-text="page"></span>
                                         </button>
                                     </template>
+                                    
+                                    <!-- Next Page Button -->
                                     <button @click="nextPage()" :disabled="currentPage >= totalPages" 
-                                            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                                            class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                                            title="Go to next page">
                                         <i class="fas fa-chevron-right"></i>
                                     </button>
+                                    
+                                    <!-- Last Page Button -->
+                                    <button @click="goToPage(totalPages)" :disabled="currentPage >= totalPages" 
+                                            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                                            title="Go to last page">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </button>
                                 </nav>
+                                
+                                <!-- Page Jump Input -->
+                                <div class="ml-4 flex items-center space-x-2">
+                                    <span class="text-sm text-gray-500">Go to:</span>
+                                    <input type="number" 
+                                           x-model="jumpToPage" 
+                                           @keyup.enter="jumpToPageNumber()"
+                                           min="1" 
+                                           :max="totalPages"
+                                           class="w-16 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="Page">
+                                    <button @click="jumpToPageNumber()" 
+                                            class="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                        Go
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -348,7 +398,7 @@
                             </div>
                             <div>
                                 <h4 class="text-lg font-medium text-gray-900" x-text="selectedProduct.name"></h4>
-                                <p class="text-sm text-gray-500" x-text="selectedProduct.sku"></p>
+                                <p class="text-sm text-gray-500" x-text="`ID: ${selectedProduct.id} | SKU: ${selectedProduct.sku}`"></p>
                             </div>
                         </div>
                         <div>
@@ -540,6 +590,7 @@
                 activeProductsCount: 0, // Added for active products count
                 lastUpdated: '', // Added for last updated timestamp
                 uploadStatus: '', // Added for bulk upload status messages
+                jumpToPage: '', // Added for page jump input
 
                 init() {
                     this.loadProducts();
@@ -609,6 +660,18 @@
                 goToPage(page) {
                     this.currentPage = page;
                     this.loadProducts();
+                },
+
+                jumpToPageNumber() {
+                    const page = parseInt(this.jumpToPage);
+                    if (!isNaN(page) && page >= 1 && page <= this.totalPages) {
+                        this.currentPage = page;
+                        this.jumpToPage = ''; // Clear the input after jumping
+                        this.loadProducts();
+                    } else {
+                        alert('Please enter a valid page number between 1 and ' + this.totalPages);
+                        this.jumpToPage = ''; // Clear invalid input
+                    }
                 },
 
                 getPageNumbers() {

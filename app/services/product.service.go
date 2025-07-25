@@ -86,6 +86,30 @@ func (s *ProductService) GetProducts(page, limit int, categoryID *uint) ([]model
 	return products, total, nil
 }
 
+func (s *ProductService) GetProductsWithoutCache(page, limit int, categoryID *uint) ([]models.Product, int64, error) {
+	// Fetch directly from database without cache for admin dashboard
+	query := s.db.Model(&models.Product{}).
+		Select("id, index, name, description, short_description, brand, category, price, currency, stock, ean, color, size, availability, image, internal_id, slug, sku, category_id, active, created_at, updated_at").
+		Where("active = ?", true).
+		Preload("CategoryModel") // Always preload CategoryModel
+
+	if categoryID != nil {
+		query = query.Where("category_id = ?", *categoryID)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	offset := (page - 1) * limit
+	var products []models.Product
+	err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&products).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return products, total, nil
+}
+
 func (s *ProductService) GetProductByID(id uint) (*models.Product, error) {
 	cacheKey := fmt.Sprintf("product:%d", id)
 
@@ -110,6 +134,19 @@ func (s *ProductService) GetProductByID(id uint) (*models.Product, error) {
 	// Cache for 10 minutes
 	if data, err := json.Marshal(product); err == nil {
 		s.redis.Set(ctx, cacheKey, data, 10*time.Minute)
+	}
+
+	return &product, nil
+}
+
+func (s *ProductService) GetProductByIDWithoutCache(id uint) (*models.Product, error) {
+	// Fetch directly from database without cache for admin dashboard
+	var product models.Product
+	err := s.db.Select("id, index, name, description, short_description, brand, category, price, currency, stock, ean, color, size, availability, image, internal_id, slug, sku, category_id, active, created_at, updated_at").
+		Preload("CategoryModel"). // Always preload CategoryModel
+		First(&product, id).Error
+	if err != nil {
+		return nil, err
 	}
 
 	return &product, nil
@@ -463,6 +500,7 @@ func (s *ProductService) BulkUploadProducts(file *multipart.FileHeader) (*dto.Bu
 
 	// Insert all new categories ONCE before starting workers
 	if len(allNewCategories) > 0 {
+		fmt.Printf("   Creating %d new categories...\n", len(allNewCategories))
 		err = s.insertAllCategoriesWithConflictHandling(allNewCategories)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("Failed to pre-insert categories: %v", err))
@@ -477,15 +515,17 @@ func (s *ProductService) BulkUploadProducts(file *multipart.FileHeader) (*dto.Bu
 				categoryMap[cat.Name] = cat.ID
 			}
 		}
+		fmt.Printf("   Successfully created %d new categories\n", len(allNewCategories))
+		fmt.Printf("   Updated category map with %d total categories\n", len(categoryMap))
 	}
 
 	categoryTime := time.Since(categoryStart)
 	fmt.Printf("   Categories loaded: %d in %v\n", len(categoryMap), categoryTime)
 
-	// High-concurrency processing with goroutines - Optimized for 2 vCPU
-	chunkSize := 100 // Reduced from 200 for better memory management
+	// Ultra-high-performance processing with optimized settings for 2 vCPU
+	chunkSize := 500 // Increased from 100 for better COPY performance
 	totalChunks := (len(productsData) + chunkSize - 1) / chunkSize
-	maxWorkers := 4 // Reduced from 10 for 2 vCPU environment
+	maxWorkers := 6 // Increased from 4 for better concurrency
 
 	fmt.Printf("   Processing in %d chunks of %d products each with %d concurrent workers\n", totalChunks, chunkSize, maxWorkers)
 
@@ -510,8 +550,8 @@ func (s *ProductService) BulkUploadProducts(file *multipart.FileHeader) (*dto.Bu
 					errorChan <- fmt.Errorf("worker %d cancelled due to timeout", workerID)
 					return
 				default:
-					// Process chunk with high-performance COPY protocol
-					chunkResult := s.processChunkHighPerformance(ctx, chunk, categoryMap, workerID)
+					// Process chunk with ultra-high-performance COPY protocol
+					chunkResult := s.processChunkUltraHighPerformance(ctx, chunk, categoryMap, workerID)
 					resultChan <- chunkResult
 				}
 			}
@@ -651,6 +691,73 @@ func (s *ProductService) processChunkHighPerformance(ctx context.Context, produc
 	return result
 }
 
+// processChunkUltraHighPerformance processes a chunk with ultra-high-performance COPY protocol
+func (s *ProductService) processChunkUltraHighPerformance(ctx context.Context, productsData []map[string]interface{}, categoryMap map[string]uint, workerID int) *chunkResult {
+	result := &chunkResult{
+		uploaded: 0,
+		failed:   0,
+		errors:   []string{},
+	}
+
+	// Get connection from pool
+	conn, err := database.Pool.Acquire(ctx)
+	if err != nil {
+		result.errors = append(result.errors, fmt.Sprintf("Failed to acquire connection: %v", err))
+		return result
+	}
+	defer conn.Release()
+
+	// Begin transaction with optimized settings
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		result.errors = append(result.errors, fmt.Sprintf("Failed to begin transaction: %v", err))
+		return result
+	}
+	defer tx.Rollback(ctx)
+
+	// Prepare products for ultra-high-performance COPY insert
+	var products []models.Product
+	for _, productData := range productsData {
+		product, err := s.convertToProduct(productData)
+		if err != nil {
+			result.failed++
+			result.errors = append(result.errors, fmt.Sprintf("Invalid product data: %v", err))
+			continue
+		}
+
+		// Set category ID
+		if product.Category != "" {
+			if categoryID, exists := categoryMap[product.Category]; exists {
+				product.CategoryID = categoryID
+				fmt.Printf("   🔗 Linked product '%s' to category '%s' (ID: %d)\n", product.Name, product.Category, categoryID)
+			} else {
+				fmt.Printf("   ⚠️ Category '%s' not found in map for product '%s'\n", product.Category, product.Name)
+			}
+		}
+
+		products = append(products, *product)
+	}
+
+	// Insert products using ultra-high-performance COPY
+	if len(products) > 0 {
+		err = s.insertProductsUltraHighPerformance(ctx, tx, products)
+		if err != nil {
+			result.errors = append(result.errors, fmt.Sprintf("Failed to insert products: %v", err))
+			return result
+		}
+		result.uploaded += len(products)
+	}
+
+	// Commit transaction
+	err = tx.Commit(ctx)
+	if err != nil {
+		result.errors = append(result.errors, fmt.Sprintf("Failed to commit transaction: %v", err))
+		return result
+	}
+
+	return result
+}
+
 // insertAllCategoriesWithConflictHandling inserts categories with conflict handling to prevent deadlocks
 func (s *ProductService) insertAllCategoriesWithConflictHandling(categories map[string]models.Category) error {
 	if len(categories) == 0 {
@@ -698,6 +805,70 @@ func (s *ProductService) insertCategoriesHighPerformance(ctx context.Context, tx
 
 // insertProductsHighPerformance uses optimized COPY protocol for products
 func (s *ProductService) insertProductsHighPerformance(ctx context.Context, tx pgx.Tx, products []models.Product) error {
+	// Prepare COPY data with proper validation
+	var rows [][]interface{}
+	timestamp := time.Now()
+
+	for i, product := range products {
+		// Validate required fields
+		if product.Name == "" {
+			return fmt.Errorf("product at index %d has empty name", i)
+		}
+		if product.Price <= 0 {
+			return fmt.Errorf("product '%s' has invalid price: %f", product.Name, product.Price)
+		}
+		if product.Slug == "" {
+			return fmt.Errorf("product '%s' has empty slug", product.Name)
+		}
+		if product.SKU == "" {
+			return fmt.Errorf("product '%s' has empty SKU", product.Name)
+		}
+
+		rows = append(rows, []interface{}{
+			product.Index,
+			product.Name,
+			product.Description,
+			product.ShortDescription,
+			product.Brand,
+			product.Category,
+			product.Price,
+			product.Currency,
+			product.Stock,
+			product.EAN,
+			product.Color,
+			product.Size,
+			product.Availability,
+			product.Image,
+			product.InternalID,
+			product.Slug,
+			product.SKU,
+			product.CategoryID,
+			product.Active,
+			timestamp,
+			timestamp,
+		})
+	}
+
+	// Use COPY to insert directly with conflict handling
+	_, err := tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"products"},
+		[]string{
+			"index", "name", "description", "short_description", "brand", "category",
+			"price", "currency", "stock", "ean", "color", "size", "availability",
+			"image", "internal_id", "slug", "sku", "category_id", "active", "created_at", "updated_at",
+		},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to copy products: %v", err)
+	}
+
+	return nil
+}
+
+// insertProductsUltraHighPerformance uses optimized COPY protocol for products
+func (s *ProductService) insertProductsUltraHighPerformance(ctx context.Context, tx pgx.Tx, products []models.Product) error {
 	// Prepare COPY data with proper validation
 	var rows [][]interface{}
 	timestamp := time.Now()

@@ -138,7 +138,8 @@ func (c *AdminController) GetProducts(ctx *fiber.Ctx) error {
 	if search != "" {
 		products, total, err = c.productService.SearchProducts(search, "", "", "", "", "", page, limit)
 	} else {
-		products, total, err = c.productService.GetProducts(page, limit, categoryID)
+		// For admin dashboard, always fetch fresh data without cache
+		products, total, err = c.productService.GetProductsWithoutCache(page, limit, categoryID)
 	}
 
 	if err != nil {
@@ -224,7 +225,8 @@ func (c *AdminController) GetProductByID(ctx *fiber.Ctx) error {
 		})
 	}
 
-	product, err := c.productService.GetProductByID(uint(id))
+	// Use non-cached version for admin dashboard
+	product, err := c.productService.GetProductByIDWithoutCache(uint(id))
 	if err != nil {
 		return ctx.Status(404).JSON(fiber.Map{
 			"error": "Product not found",
