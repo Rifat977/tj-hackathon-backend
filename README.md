@@ -83,7 +83,80 @@ docker-compose --profile load-balancing up -d
 # Admin: http://localhost:3000/admin
 ```
 
-### Load Balancer (Nginx)
+## 🌐 Nginx Configuration
+
+### Production Load Balancer Setup
+
+The application uses nginx as a reverse proxy with load balancing and high availability features.
+
+#### Nginx Configuration (`/etc/nginx/sites-enabled/default`)
+
+```nginx
+upstream go_fiber_backend {
+    least_conn;
+
+    # Primary app instance
+    server 127.0.0.1:3000;
+
+    # Backup instance, only used if primary is unavailable
+    server 127.0.0.1:3001 backup;
+}
+
+server {
+    listen 80;
+    server_name _;
+
+    # Increase max body size for large file uploads
+    client_max_body_size 100M;
+
+    location / {
+        proxy_pass http://go_fiber_backend;
+
+        # Required for WebSocket and HTTP/1.1 support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Forward real host to backend
+        proxy_set_header Host $host;
+
+        # Disable caching for WebSocket or long polling
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+#### Key Features
+
+- **Load Balancing**: Uses `least_conn` algorithm for optimal distribution
+- **High Availability**: Primary instance with backup failover
+- **Large File Support**: 100MB upload limit for bulk operations
+- **WebSocket Support**: Full WebSocket and HTTP/1.1 compatibility
+- **Real-time Features**: Optimized for long polling and real-time updates
+
+#### Deployment Steps
+
+```bash
+# Install nginx (if not already installed)
+sudo apt update
+sudo apt install nginx
+
+# Copy configuration
+sudo cp nginx.conf /etc/nginx/sites-enabled/default
+
+# Test configuration
+sudo nginx -t
+
+# Reload nginx
+sudo systemctl reload nginx
+
+# Enable auto-start
+sudo systemctl enable nginx
+```
+
+### Alternative Docker Compose Load Balancer
+
+For development or containerized environments:
 
 ```nginx
 upstream go_fiber_backend {
