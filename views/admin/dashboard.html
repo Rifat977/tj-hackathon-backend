@@ -824,31 +824,39 @@
                         this.uploadProgress = 0;
                         this.uploadStatus = 'Starting upload...';
                         
+                        // Track start time for actual timing
+                        const startTime = Date.now();
+                        let lastProgressUpdate = startTime;
+                        
                         // Calculate expected processing time based on file size
                         const fileSizeMB = this.selectedFile.size / (1024 * 1024);
-                        const expectedTimeSeconds = Math.max(60, fileSizeMB * 0.5); // 0.5 seconds per MB with high concurrency
+                        const expectedTimeSeconds = Math.max(20, fileSizeMB * 0.2); // 0.2 seconds per MB with ultra-fast processing
                         
-                        // Simulate more realistic progress for high-concurrency processing
+                        // Simulate more realistic progress for ultra-fast processing
                         const progressInterval = setInterval(() => {
-                            if (this.uploadProgress < 85) {
-                                // Adaptive progress based on file size with high-concurrency expectations
+                            if (this.uploadProgress < 95) {
+                                // Calculate actual elapsed time
+                                const elapsedSeconds = (Date.now() - startTime) / 1000;
+                                
+                                // Adaptive progress based on file size with ultra-fast expectations
                                 let increment;
                                 if (fileSizeMB > 50) {
-                                    // Large files: faster progress with high concurrency
-                                    increment = 2 + Math.random() * 3;
-                                    this.uploadStatus = `Processing large file (${fileSizeMB.toFixed(1)} MB) with high concurrency...`;
-                                } else if (fileSizeMB > 10) {
-                                    // Medium files: very fast progress
-                                    increment = 3 + Math.random() * 4;
-                                    this.uploadStatus = `Processing file (${fileSizeMB.toFixed(1)} MB) with 10 concurrent workers...`;
-                                } else {
-                                    // Small files: very fast progress
+                                    // Large files: ultra-fast progress with high concurrency
                                     increment = 4 + Math.random() * 5;
-                                    this.uploadStatus = `Processing file with high concurrency...`;
+                                    this.uploadStatus = `⚡ Processing large file (${fileSizeMB.toFixed(1)} MB) with ultra-fast processing... (${elapsedSeconds.toFixed(1)}s elapsed)`;
+                                } else if (fileSizeMB > 10) {
+                                    // Medium files: ultra-fast progress
+                                    increment = 5 + Math.random() * 6;
+                                    this.uploadStatus = `⚡ Processing file (${fileSizeMB.toFixed(1)} MB) with 12 concurrent workers... (${elapsedSeconds.toFixed(1)}s elapsed)`;
+                                } else {
+                                    // Small files: ultra-fast progress
+                                    increment = 6 + Math.random() * 7;
+                                    this.uploadStatus = `⚡ Processing file with ultra-fast concurrency... (${elapsedSeconds.toFixed(1)}s elapsed)`;
                                 }
                                 this.uploadProgress += increment;
+                                lastProgressUpdate = Date.now();
                             }
-                        }, 1000);
+                        }, 600);
 
                         const response = await fetch('/admin/api/products/bulk', {
                             method: 'POST',
@@ -857,7 +865,10 @@
                         
                         clearInterval(progressInterval);
                         this.uploadProgress = 100;
-                        this.uploadStatus = 'Upload completed!';
+                        
+                        // Calculate actual total time
+                        const totalTimeSeconds = (Date.now() - startTime) / 1000;
+                        this.uploadStatus = `⚡ Upload completed in ${totalTimeSeconds.toFixed(2)} seconds!`;
                         
                         // Try to parse response as JSON
                         let result;
@@ -871,19 +882,27 @@
                         }
                         
                         if (response.ok) {
-                            // Show detailed results in a better format
+                            // Show detailed results with actual timing
                             let message = `🚀 Bulk upload completed!\n\n`;
                             message += `✅ Successfully uploaded: ${result.uploaded.toLocaleString()} products\n`;
                             message += `❌ Failed: ${result.failed.toLocaleString()} products\n`;
                             message += `📊 Total processed: ${result.total.toLocaleString()} products\n`;
                             
+                            // Use server-provided processing time if available, otherwise use client time
+                            const processingTime = result.processing_time_seconds || totalTimeSeconds;
+                            message += `⏱️ Actual processing time: ${processingTime.toFixed(2)} seconds\n`;
+                            
                             if (result.uploaded > 0) {
                                 const successRate = ((result.uploaded / result.total) * 100).toFixed(1);
                                 message += `📈 Success rate: ${successRate}%\n`;
+                                
+                                // Calculate throughput using server processing time
+                                const throughput = (result.uploaded / processingTime).toFixed(0);
+                                message += `⚡ Throughput: ${throughput} products/second\n`;
                             }
                             
-                            if (result.timeout) {
-                                message += `⏱️ Timeout: ${result.timeout} milliseconds\n`;
+                            if (result.file_size_mb) {
+                                message += `📁 File size: ${result.file_size_mb.toFixed(2)} MB\n`;
                             }
                             
                             if (result.errors && result.errors.length > 0) {

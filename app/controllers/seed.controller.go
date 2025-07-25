@@ -14,14 +14,6 @@ func NewSeedController() *SeedController {
 }
 
 // SeedProducts seeds the database with products from the JSON file
-// @Summary Seed products from JSON
-// @Description Seeds the database with products from the assets/products.json file. This will create categories and products with all fields including images.
-// @Tags seed
-// @Accept json
-// @Produce json
-// @Success 200 {object} map[string]interface{} "Success - Products seeded successfully"
-// @Failure 500 {object} map[string]interface{} "Internal Server Error - Failed to seed products"
-// @Router /api/seed/products [post]
 func (c *SeedController) SeedProducts(ctx *fiber.Ctx) error {
 	// Get counts before seeding
 	productsBefore, categoriesBefore, err := database.GetDataCounts()
@@ -67,14 +59,6 @@ func (c *SeedController) SeedProducts(ctx *fiber.Ctx) error {
 }
 
 // ClearProducts clears all products and categories from the database
-// @Summary Clear products data
-// @Description Clears all products and categories from the database. This action cannot be undone.
-// @Tags seed
-// @Accept json
-// @Produce json
-// @Success 200 {object} map[string]interface{} "Success - Products and categories cleared"
-// @Failure 500 {object} map[string]interface{} "Internal Server Error - Failed to clear products"
-// @Router /api/seed/clear [delete]
 func (c *SeedController) ClearProducts(ctx *fiber.Ctx) error {
 	// Get counts before clearing
 	productsBefore, categoriesBefore, err := database.GetDataCounts()

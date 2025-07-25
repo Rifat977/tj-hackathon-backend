@@ -46,9 +46,10 @@ type UpdateProductRequest struct {
 
 // BulkUploadResult represents the result of a bulk upload operation
 type BulkUploadResult struct {
-	Uploaded int      `json:"uploaded"`
-	Failed   int      `json:"failed"`
-	Errors   []string `json:"errors,omitempty"`
+	Uploaded              int      `json:"uploaded"`
+	Failed                int      `json:"failed"`
+	Errors                []string `json:"errors,omitempty"`
+	ProcessingTimeSeconds float64  `json:"processing_time_seconds,omitempty"`
 }
 
 // AdminStats represents admin dashboard statistics

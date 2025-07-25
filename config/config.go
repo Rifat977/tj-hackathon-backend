@@ -47,9 +47,9 @@ func LoadConfig() {
 		IdleTimeout:  getDurationEnv("IDLE_TIMEOUT", 20*time.Minute),  // Increased to 20 minutes idle
 		BodyLimit:    getInt64Env("BODY_LIMIT", 500*1024*1024),        // Increased to 500MB for large JSON files
 
-		// Database connection pool - optimized for high concurrency
-		DBMaxOpenConns:    getIntEnv("DB_MAX_OPEN_CONNS", 200), // Increased for bulk operations
-		DBMaxIdleConns:    getIntEnv("DB_MAX_IDLE_CONNS", 50),  // More idle connections
+		// Database connection pool - optimized for ultra-fast bulk operations
+		DBMaxOpenConns:    getIntEnv("DB_MAX_OPEN_CONNS", 500), // Increased for ultra-fast bulk operations
+		DBMaxIdleConns:    getIntEnv("DB_MAX_IDLE_CONNS", 150), // More idle connections for ultra-fast processing
 		DBConnMaxLifetime: getDurationEnv("DB_CONN_MAX_LIFETIME", 2*time.Hour),
 		DBConnMaxIdleTime: getDurationEnv("DB_CONN_MAX_IDLE_TIME", 1*time.Hour),
 

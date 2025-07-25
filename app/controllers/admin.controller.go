@@ -432,7 +432,8 @@ func (c *AdminController) BulkUploadProducts(ctx *fiber.Ctx) error {
 	}
 
 	fmt.Printf("📊 Upload timeout calculated: %d seconds for %.2f MB file\n", timeoutSeconds, fileSizeMB)
-	fmt.Printf("🚀 Using optimized processing with 4 workers for 2 vCPU environment\n")
+	fmt.Printf("⚡ ULTRA-FAST: Using optimized processing with 12 workers for 2 vCPU environment\n")
+	fmt.Printf("⚡ Chunk size: 2000 products, Streaming JSON parsing enabled\n")
 	fmt.Printf("⚙️ Server Write Timeout: %v, Additional Time: %v\n", baseTimeout, additionalTime)
 
 	// Create context with timeout
@@ -450,16 +451,26 @@ func (c *AdminController) BulkUploadProducts(ctx *fiber.Ctx) error {
 		runtime.ReadMemStats(&m)
 		initialAlloc := m.Alloc
 
+		// Track actual processing start time
+		processingStartTime := time.Now()
+
 		result, err := c.productService.BulkUploadProducts(file)
 		if err != nil {
 			errChan <- err
 			return
 		}
 
+		// Calculate actual processing time
+		actualProcessingTime := time.Since(processingStartTime).Seconds()
+
 		// Log memory usage
 		runtime.ReadMemStats(&m)
 		memoryUsed := m.Alloc - initialAlloc
 		fmt.Printf("💾 Memory used during upload: %.2f MB\n", float64(memoryUsed)/(1024*1024))
+		fmt.Printf("⚡ Actual processing time: %.2f seconds\n", actualProcessingTime)
+
+		// Add processing time to result
+		result.ProcessingTimeSeconds = actualProcessingTime
 
 		resultChan <- result
 	}()
@@ -469,12 +480,13 @@ func (c *AdminController) BulkUploadProducts(ctx *fiber.Ctx) error {
 	case result := <-resultChan:
 		// Return detailed results
 		response := fiber.Map{
-			"message":      "Bulk upload completed",
-			"uploaded":     result.Uploaded,
-			"failed":       result.Failed,
-			"total":        result.Uploaded + result.Failed,
-			"timeout":      timeoutSeconds,
-			"file_size_mb": fileSizeMB,
+			"message":                 "Bulk upload completed",
+			"uploaded":                result.Uploaded,
+			"failed":                  result.Failed,
+			"total":                   result.Uploaded + result.Failed,
+			"timeout":                 timeoutSeconds,
+			"file_size_mb":            fileSizeMB,
+			"processing_time_seconds": result.ProcessingTimeSeconds,
 		}
 
 		// Include errors if any

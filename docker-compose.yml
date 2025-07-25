@@ -12,15 +12,24 @@ services:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
-      # Optimize for bulk upload performance
-      - POSTGRES_SHARED_BUFFERS=256MB
+      # Optimize for ultra-fast bulk upload performance
+      - POSTGRES_SHARED_BUFFERS=768MB
       - POSTGRES_EFFECTIVE_CACHE_SIZE=1GB
-      - POSTGRES_WORK_MEM=16MB
-      - POSTGRES_MAINTENANCE_WORK_MEM=128MB
-      - POSTGRES_MAX_CONNECTIONS=200
-      - POSTGRES_WAL_BUFFERS=16MB
-      - POSTGRES_CHECKPOINT_SEGMENTS=32
+      - POSTGRES_WORK_MEM=64MB
+      - POSTGRES_MAINTENANCE_WORK_MEM=512MB
+      - POSTGRES_MAX_CONNECTIONS=500
+      - POSTGRES_WAL_BUFFERS=64MB
+      - POSTGRES_CHECKPOINT_SEGMENTS=128
       - POSTGRES_CHECKPOINT_COMPLETION_TARGET=0.9
+      - POSTGRES_RANDOM_PAGE_COST=1.1
+      - POSTGRES_EFFECTIVE_IO_CONCURRENCY=800
+      - POSTGRES_MAX_PARALLEL_WORKERS_PER_GATHER=6
+      - POSTGRES_MAX_PARALLEL_WORKERS=6
+      - POSTGRES_MAX_WORKER_PROCESSES=12
+      - POSTGRES_LOG_MIN_DURATION_STATEMENT=100
+      - POSTGRES_SYNCHRONOUS_COMMIT=off
+      - POSTGRES_FSYNC=off
+      - POSTGRES_FULL_PAGE_WRITES=off
     restart: unless-stopped
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -34,11 +43,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.7'    # Updated to 0.7 CPU
-          memory: 768M   # Updated to 768MB RAM
+          cpus: '0.8'    # Updated to 0.8 CPU
+          memory: 1G     # Updated to 1GB RAM
         reservations:
-          cpus: '0.3'    # Increased reservation
-          memory: 384M   # Increased reservation
+          cpus: '0.4'    # Increased reservation
+          memory: 512M   # Increased reservation
     networks:
       - go-fiber-network
 
@@ -75,7 +84,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'    # Updated to 0.3 CPU
+          cpus: '0.2'    # Updated to 0.2 CPU
           memory: 512M   # Updated to 512MB RAM
         reservations:
           cpus: '0.1'
@@ -97,14 +106,14 @@ services:
       - REDIS_URL=redis:6379
       - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      # Optimize for bulk upload - Primary handler
-      - DB_MAX_OPEN_CONNS=150
-      - DB_MAX_IDLE_CONNS=30
+      # Optimize for ultra-fast bulk upload - Primary handler
+      - DB_MAX_OPEN_CONNS=500
+      - DB_MAX_IDLE_CONNS=150
       - DB_CONN_MAX_LIFETIME=1h
       - DB_CONN_MAX_IDLE_TIME=30m
-      - REDIS_POOL_SIZE=30
-      - REDIS_MIN_IDLE_CONNS=8
-      # HTTP timeouts for large bulk uploads
+      - REDIS_POOL_SIZE=80
+      - REDIS_MIN_IDLE_CONNS=25
+      # HTTP timeouts for large ultra-fast bulk uploads
       - READ_TIMEOUT=10m
       - WRITE_TIMEOUT=15m
       - IDLE_TIMEOUT=20m
@@ -128,11 +137,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.6'    # Updated to 0.6 CPU - Primary bulk upload handler
+          cpus: '0.5'    # Updated to 0.5 CPU - Main app
           memory: 768M   # Updated to 768MB RAM
         reservations:
-          cpus: '0.3'    # Increased reservation for primary
-          memory: 384M   # Increased reservation for primary
+          cpus: '0.2'    # Adjusted reservation
+          memory: 384M   # Adjusted reservation
     networks:
       - go-fiber-network
 
@@ -190,7 +199,6 @@ services:
           memory: 128M   # Minimal reservation
     networks:
       - go-fiber-network
-
 
   # Development service with hot reload
   app-dev:
