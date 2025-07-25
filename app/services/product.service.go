@@ -456,10 +456,10 @@ func (s *ProductService) BulkUploadProducts(file *multipart.FileHeader) (*dto.Bu
 	categoryTime := time.Since(categoryStart)
 	fmt.Printf("   Categories loaded: %d in %v\n", len(categoryMap), categoryTime)
 
-	// High-concurrency processing with goroutines
-	chunkSize := 200 // Smaller chunks for better concurrency
+	// High-concurrency processing with goroutines - Optimized for 2 vCPU
+	chunkSize := 100 // Reduced from 200 for better memory management
 	totalChunks := (len(productsData) + chunkSize - 1) / chunkSize
-	maxWorkers := 10 // Maximum concurrent workers
+	maxWorkers := 4 // Reduced from 10 for 2 vCPU environment
 
 	fmt.Printf("   Processing in %d chunks of %d products each with %d concurrent workers\n", totalChunks, chunkSize, maxWorkers)
 

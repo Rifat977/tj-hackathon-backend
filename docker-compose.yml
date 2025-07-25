@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database - Optimized for bulk operations
   postgres:
     image: postgres:15-alpine
     container_name: go-fiber-postgres
@@ -12,6 +12,15 @@ services:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
       - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+      # Optimize for bulk upload performance
+      - POSTGRES_SHARED_BUFFERS=256MB
+      - POSTGRES_EFFECTIVE_CACHE_SIZE=1GB
+      - POSTGRES_WORK_MEM=16MB
+      - POSTGRES_MAINTENANCE_WORK_MEM=128MB
+      - POSTGRES_MAX_CONNECTIONS=200
+      - POSTGRES_WAL_BUFFERS=16MB
+      - POSTGRES_CHECKPOINT_SEGMENTS=32
+      - POSTGRES_CHECKPOINT_COMPLETION_TARGET=0.9
     restart: unless-stopped
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -25,21 +34,33 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: '0.6'    # Reduced from 1.0
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: '0.2'    # Reduced from 0.25
           memory: 256M
     networks:
       - go-fiber-network
 
-  # Redis Cache
+  # Redis Cache - Optimized for bulk operations
   redis:
     image: redis:7-alpine
     container_name: go-fiber-redis
     ports:
       - "6379:6379"
-    command: ["redis-server", "--requirepass", "your_redis_password", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    command: [
+      "redis-server", 
+      "--requirepass", "your_redis_password", 
+      "--appendonly", "yes", 
+      "--maxmemory", "512mb",           # Increased for bulk operations
+      "--maxmemory-policy", "allkeys-lru",
+      "--save", "900", "1",             # Optimize persistence
+      "--save", "300", "10",
+      "--save", "60", "10000",
+      "--tcp-keepalive", "300",         # Keep connections alive
+      "--timeout", "0",                 # No timeout for bulk operations
+      "--tcp-backlog", "511"            # Increase backlog
+    ]
     environment:
       - REDIS_PASSWORD=your_redis_password
     restart: unless-stopped
@@ -54,15 +75,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 256M
+          cpus: '0.3'    # Reduced from 0.5
+          memory: 512M   # Increased from 256M
         reservations:
           cpus: '0.1'
-          memory: 128M
+          memory: 256M   # Increased from 128M
     networks:
       - go-fiber-network
 
-  # Main application service
+  # Main application service - Optimized for bulk upload
   app:
     build:
       context: .
@@ -76,6 +97,13 @@ services:
       - REDIS_URL=redis:6379
       - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      # Optimize for bulk upload
+      - DB_MAX_OPEN_CONNS=100
+      - DB_MAX_IDLE_CONNS=25
+      - DB_CONN_MAX_LIFETIME=1h
+      - DB_CONN_MAX_IDLE_TIME=30m
+      - REDIS_POOL_SIZE=20
+      - REDIS_MIN_IDLE_CONNS=5
     volumes:
       - ./assets:/app/assets:ro
       - ./views:/app/views:ro
@@ -95,15 +123,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '0.5'    # Reduced from 1.0 - main instance gets more resources
+          memory: 768M   # Increased from 512M for bulk operations
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: '0.2'    # Reduced from 0.25
+          memory: 512M   # Increased from 256M
     networks:
       - go-fiber-network
 
-  # Additional instances for load balancing
+  # Additional instances for load balancing - Reduced resources
   app-instance-1:
     build:
       context: .
@@ -117,6 +145,13 @@ services:
       - REDIS_URL=redis:6379
       - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      # Reduced connection pools for secondary instances
+      - DB_MAX_OPEN_CONNS=50
+      - DB_MAX_IDLE_CONNS=10
+      - DB_CONN_MAX_LIFETIME=1h
+      - DB_CONN_MAX_IDLE_TIME=30m
+      - REDIS_POOL_SIZE=10
+      - REDIS_MIN_IDLE_CONNS=2
     volumes:
       - ./assets:/app/assets:ro
       - ./views:/app/views:ro
@@ -138,11 +173,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '0.3'    # Reduced from 1.0 - secondary instance
+          memory: 384M   # Reduced from 512M
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: '0.1'    # Reduced from 0.25
+          memory: 256M   # Reduced from 256M
     networks:
       - go-fiber-network
 
@@ -159,6 +194,13 @@ services:
       - REDIS_URL=redis:6379
       - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      # Minimal resources for last instance
+      - DB_MAX_OPEN_CONNS=30
+      - DB_MAX_IDLE_CONNS=5
+      - DB_CONN_MAX_LIFETIME=1h
+      - DB_CONN_MAX_IDLE_TIME=30m
+      - REDIS_POOL_SIZE=5
+      - REDIS_MIN_IDLE_CONNS=1
     volumes:
       - ./assets:/app/assets:ro
       - ./views:/app/views:ro
@@ -180,11 +222,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '0.2'    # Minimal CPU for last instance
+          memory: 256M   # Minimal memory for last instance
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: '0.05'   # Minimal reservation
+          memory: 128M   # Minimal reservation
     networks:
       - go-fiber-network
 
@@ -201,6 +243,13 @@ services:
       - REDIS_URL=redis:6379
       - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      # Minimal resources for last instance
+      - DB_MAX_OPEN_CONNS=30
+      - DB_MAX_IDLE_CONNS=5
+      - DB_CONN_MAX_LIFETIME=1h
+      - DB_CONN_MAX_IDLE_TIME=30m
+      - REDIS_POOL_SIZE=5
+      - REDIS_MIN_IDLE_CONNS=1
     volumes:
       - ./assets:/app/assets:ro
       - ./views:/app/views:ro
@@ -222,11 +271,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '0.2'    # Minimal CPU for last instance
+          memory: 256M   # Minimal memory for last instance
         reservations:
-          cpus: '0.25'
-          memory: 256M
+          cpus: '0.05'   # Minimal reservation
+          memory: 128M   # Minimal reservation
     networks:
       - go-fiber-network
 
@@ -264,6 +313,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.4'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
     networks:
       - go-fiber-network
 
