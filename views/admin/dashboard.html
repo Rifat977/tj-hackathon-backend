@@ -486,15 +486,6 @@
     "Description": "Product description"
   }
 ]</pre>
-                                    <p class="mt-2 text-xs">
-                                        <strong>Performance Notes:</strong><br>
-                                        • High-concurrency processing with 10 concurrent workers<br>
-                                        • Optimized COPY protocol for maximum speed<br>
-                                        • Chunked processing (200 products per chunk)<br>
-                                        • Timeout automatically calculated based on file size<br>
-                                        • Progress shown in real-time during upload<br>
-                                        • Maximum file size: 100MB
-                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -829,7 +820,7 @@
                             }
                             
                             if (result.timeout) {
-                                message += `⏱️ Timeout: ${result.timeout} seconds\n`;
+                                message += `⏱️ Timeout: ${result.timeout} milliseconds\n`;
                             }
                             
                             if (result.errors && result.errors.length > 0) {

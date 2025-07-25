@@ -1,0 +1,41 @@
+[Unit]
+Description=Go Fiber Application Health Monitor
+Documentation=https://github.com/your-repo/go-fiber-boilerplate
+After=docker.service
+Requires=docker.service
+StartLimitInterval=60s
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/go-fiber-boilerplate
+ExecStart=/opt/go-fiber-boilerplate/scripts/health-monitor.sh
+ExecReload=/bin/kill -USR1 $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStartSec=60
+TimeoutStopSec=30
+Restart=always
+RestartSec=10
+RestartPreventExitStatus=0
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/go-fiber-boilerplate /var/log
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=256M
+
+# Environment
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=DOCKER_HOST=unix:///var/run/docker.sock
+
+[Install]
+WantedBy=multi-user.target 

@@ -16,14 +16,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+# Build the application with optimizations
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o main .
 
 # Final stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS requests
-RUN apk --no-cache add ca-certificates tzdata
+# Install ca-certificates, tzdata, and tini for proper signal handling
+RUN apk --no-cache add ca-certificates tzdata tini wget
 
 # Create non-root user
 RUN addgroup -g 1001 -S appgroup && \
@@ -37,9 +37,12 @@ COPY --from=builder /app/main .
 
 # Copy assets directory if it exists
 COPY --from=builder /app/assets ./assets
+# Copy views directory if it exists
+COPY --from=builder /app/views ./views
 
-# Change ownership to non-root user
-RUN chown -R appuser:appgroup /app
+# Create necessary directories and set permissions
+RUN mkdir -p /app/logs && \
+    chown -R appuser:appgroup /app
 
 # Switch to non-root user
 USER appuser
@@ -47,9 +50,12 @@ USER appuser
 # Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+# Enhanced health check with better timeout and interval
+HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider --timeout=3 http://localhost:3000/api/health || exit 1
+
+# Use tini as init system for proper signal handling and zombie reaping
+ENTRYPOINT ["/sbin/tini", "--"]
 
 # Run the application
 CMD ["./main"] 

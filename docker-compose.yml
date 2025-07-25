@@ -1,6 +1,67 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: go-fiber-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - go-fiber-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: go-fiber-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--requirepass", "your_redis_password", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    environment:
+      - REDIS_PASSWORD=your_redis_password
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    networks:
+      - go-fiber-network
+
   # Main application service
   app:
     build:
@@ -11,21 +72,38 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
-      - REDIS_URL=172.17.0.1:6379
-      - REDIS_PASSWORD=
+      - DATABASE_URL=postgresql://user:password@postgres:5432/testdb?sslmode=disable
+      - REDIS_URL=redis:6379
+      - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
     volumes:
       - ./assets:/app/assets:ro
+      - ./views:/app/views:ro
+      - app-logs:/app/logs
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--timeout=3", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 5s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - go-fiber-network
 
-  # Additional instances for load balancing (uncomment as needed)
+  # Additional instances for load balancing
   app-instance-1:
     build:
       context: .
@@ -35,21 +113,38 @@ services:
       - "3001:3000"
     environment:
       - PORT=3000
-      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
-      - REDIS_URL=172.17.0.1:6379
-      - REDIS_PASSWORD=
+      - DATABASE_URL=postgresql://user:password@postgres:5432/testdb?sslmode=disable
+      - REDIS_URL=redis:6379
+      - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
     volumes:
       - ./assets:/app/assets:ro
+      - ./views:/app/views:ro
+      - app-logs-1:/app/logs
     restart: unless-stopped
     profiles:
       - load-balancing
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--timeout=3", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 5s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - go-fiber-network
 
   app-instance-2:
     build:
@@ -60,21 +155,38 @@ services:
       - "3002:3000"
     environment:
       - PORT=3000
-      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
-      - REDIS_URL=172.17.0.1:6379
-      - REDIS_PASSWORD=
+      - DATABASE_URL=postgresql://user:password@postgres:5432/testdb?sslmode=disable
+      - REDIS_URL=redis:6379
+      - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
     volumes:
       - ./assets:/app/assets:ro
+      - ./views:/app/views:ro
+      - app-logs-2:/app/logs
     restart: unless-stopped
     profiles:
       - load-balancing
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--timeout=3", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 5s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - go-fiber-network
 
   app-instance-3:
     build:
@@ -85,21 +197,38 @@ services:
       - "3003:3000"
     environment:
       - PORT=3000
-      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
-      - REDIS_URL=172.17.0.1:6379
-      - REDIS_PASSWORD=
+      - DATABASE_URL=postgresql://user:password@postgres:5432/testdb?sslmode=disable
+      - REDIS_URL=redis:6379
+      - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
     volumes:
       - ./assets:/app/assets:ro
+      - ./views:/app/views:ro
+      - app-logs-3:/app/logs
     restart: unless-stopped
     profiles:
       - load-balancing
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--timeout=3", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 5s
       retries: 3
       start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - go-fiber-network
 
   # Development service with hot reload
   app-dev:
@@ -111,24 +240,49 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - DATABASE_URL=postgresql://user:password@172.17.0.1:5433/testdb?sslmode=disable
-      - REDIS_URL=172.17.0.1:6379
-      - REDIS_PASSWORD=
+      - DATABASE_URL=postgresql://user:password@postgres:5432/testdb?sslmode=disable
+      - REDIS_URL=redis:6379
+      - REDIS_PASSWORD=your_redis_password
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
     volumes:
       - .:/app
       - /app/go.mod
       - /app/go.sum
+      - ./views:/app/views:ro
+      - dev-logs:/app/logs
     restart: unless-stopped
     profiles:
       - development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--timeout=3", "http://localhost:3000/api/health"]
+      interval: 20s
+      timeout: 5s
       retries: 3
       start_period: 40s
+    networks:
+      - go-fiber-network
 
 networks:
-  default:
-    name: go-fiber-network 
+  go-fiber-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+  app-logs:
+    driver: local
+  app-logs-1:
+    driver: local
+  app-logs-2:
+    driver: local
+  app-logs-3:
+    driver: local
+  dev-logs:
+    driver: local 

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"sync"
 
@@ -415,8 +416,45 @@ func (s *ProductService) BulkUploadProducts(file *multipart.FileHeader) (*dto.Bu
 			categoryMap[cat.Name] = cat.ID
 		}
 	}
+
+	// Pre-insert ALL unique categories to avoid deadlocks
+	allNewCategories := make(map[string]models.Category)
+	for _, productData := range productsData {
+		if category, ok := productData["Category"].(string); ok && category != "" {
+			if _, exists := categoryMap[category]; !exists {
+				if _, exists := allNewCategories[category]; !exists {
+					newCategory := models.Category{
+						Name:        category,
+						Description: fmt.Sprintf("Category for %s", category),
+						Slug:        s.generateCategorySlug(category),
+						Active:      true,
+					}
+					allNewCategories[category] = newCategory
+				}
+			}
+		}
+	}
+
+	// Insert all new categories ONCE before starting workers
+	if len(allNewCategories) > 0 {
+		err = s.insertAllCategoriesWithConflictHandling(allNewCategories)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("Failed to pre-insert categories: %v", err))
+		}
+
+		// Reload category map with new categories
+		var updatedCategories []models.Category
+		err = s.db.Model(&models.Category{}).Select("name, id").Find(&updatedCategories).Error
+		if err == nil {
+			categoryMap = make(map[string]uint)
+			for _, cat := range updatedCategories {
+				categoryMap[cat.Name] = cat.ID
+			}
+		}
+	}
+
 	categoryTime := time.Since(categoryStart)
-	fmt.Printf("   Categories loaded: %d in %v\n", len(categories), categoryTime)
+	fmt.Printf("   Categories loaded: %d in %v\n", len(categoryMap), categoryTime)
 
 	// High-concurrency processing with goroutines
 	chunkSize := 200 // Smaller chunks for better concurrency
@@ -547,38 +585,6 @@ func (s *ProductService) processChunkHighPerformance(ctx context.Context, produc
 	}
 	defer tx.Rollback(ctx)
 
-	// Process categories first for this chunk
-	newCategories := make(map[string]models.Category)
-	for _, productData := range productsData {
-		if category, ok := productData["Category"].(string); ok && category != "" {
-			if _, exists := categoryMap[category]; !exists {
-				if _, exists := newCategories[category]; !exists {
-					newCategory := models.Category{
-						Name:        category,
-						Description: fmt.Sprintf("Category for %s", category),
-						Slug:        s.generateCategorySlug(category),
-						Active:      true,
-					}
-					newCategories[category] = newCategory
-				}
-			}
-		}
-	}
-
-	// Insert new categories using high-performance COPY
-	if len(newCategories) > 0 {
-		err = s.insertCategoriesHighPerformance(ctx, tx, newCategories)
-		if err != nil {
-			result.errors = append(result.errors, fmt.Sprintf("Failed to insert categories: %v", err))
-			return result
-		}
-
-		// Update category map with new categories
-		for name, cat := range newCategories {
-			categoryMap[name] = cat.ID
-		}
-	}
-
 	// Prepare products for high-performance COPY insert
 	var products []models.Product
 	for _, productData := range productsData {
@@ -619,31 +625,46 @@ func (s *ProductService) processChunkHighPerformance(ctx context.Context, produc
 	return result
 }
 
-// insertCategoriesHighPerformance uses optimized COPY protocol for categories
-func (s *ProductService) insertCategoriesHighPerformance(ctx context.Context, tx pgx.Tx, categories map[string]models.Category) error {
-	// Use direct INSERT with ON CONFLICT for better performance
-	var rows [][]interface{}
-	timestamp := time.Now()
-	for _, cat := range categories {
-		rows = append(rows, []interface{}{
-			cat.Name,
-			cat.Description,
-			cat.Slug,
-			cat.Active,
-			timestamp,
-			timestamp,
-		})
+// insertAllCategoriesWithConflictHandling inserts categories with conflict handling to prevent deadlocks
+func (s *ProductService) insertAllCategoriesWithConflictHandling(categories map[string]models.Category) error {
+	if len(categories) == 0 {
+		return nil
 	}
 
-	// Use COPY to insert directly with conflict handling
-	_, err := tx.CopyFrom(
-		ctx,
-		pgx.Identifier{"categories"},
-		[]string{"name", "description", "slug", "active", "created_at", "updated_at"},
-		pgx.CopyFromRows(rows),
-	)
-	if err != nil {
-		return err
+	// Use GORM with ON CONFLICT to handle duplicates safely
+	var categorySlice []models.Category
+	for _, cat := range categories {
+		categorySlice = append(categorySlice, cat)
+	}
+
+	// Insert with conflict handling - ignore duplicates
+	result := s.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "name"}},
+		DoNothing: true,
+	}).Create(&categorySlice)
+
+	return result.Error
+}
+
+// insertCategoriesHighPerformance uses INSERT with ON CONFLICT for safe concurrent access
+func (s *ProductService) insertCategoriesHighPerformance(ctx context.Context, tx pgx.Tx, categories map[string]models.Category) error {
+	if len(categories) == 0 {
+		return nil
+	}
+
+	// Use INSERT with ON CONFLICT instead of COPY to prevent deadlocks
+	query := `
+		INSERT INTO categories (name, description, slug, active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (name) DO NOTHING
+	`
+
+	timestamp := time.Now()
+	for _, cat := range categories {
+		_, err := tx.Exec(ctx, query, cat.Name, cat.Description, cat.Slug, cat.Active, timestamp, timestamp)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
