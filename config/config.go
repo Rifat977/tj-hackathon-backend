@@ -42,10 +42,10 @@ func LoadConfig() {
 		JWT_SECRET:     os.Getenv("JWT_SECRET"),
 
 		// HTTP Server timeouts - optimized for bulk uploads
-		ReadTimeout:  getDurationEnv("READ_TIMEOUT", 5*time.Minute),   // 5 minutes for large file reads
-		WriteTimeout: getDurationEnv("WRITE_TIMEOUT", 10*time.Minute), // 10 minutes for bulk operations
-		IdleTimeout:  getDurationEnv("IDLE_TIMEOUT", 15*time.Minute),  // 15 minutes idle
-		BodyLimit:    getInt64Env("BODY_LIMIT", 100*1024*1024),        // 100MB for large JSON files
+		ReadTimeout:  getDurationEnv("READ_TIMEOUT", 10*time.Minute),  // Increased to 10 minutes for large file reads
+		WriteTimeout: getDurationEnv("WRITE_TIMEOUT", 15*time.Minute), // Increased to 15 minutes for bulk operations
+		IdleTimeout:  getDurationEnv("IDLE_TIMEOUT", 20*time.Minute),  // Increased to 20 minutes idle
+		BodyLimit:    getInt64Env("BODY_LIMIT", 500*1024*1024),        // Increased to 500MB for large JSON files
 
 		// Database connection pool - optimized for high concurrency
 		DBMaxOpenConns:    getIntEnv("DB_MAX_OPEN_CONNS", 200), // Increased for bulk operations

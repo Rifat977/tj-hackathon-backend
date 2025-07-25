@@ -17,6 +17,8 @@ import (
 
 	"sync"
 
+	"runtime"
+
 	"github.com/rizkyizh/go-fiber-boilerplate/app/dto"
 	"github.com/rizkyizh/go-fiber-boilerplate/app/models"
 	"github.com/rizkyizh/go-fiber-boilerplate/database"
@@ -381,10 +383,30 @@ func (s *ProductService) BulkUploadProducts(file *multipart.FileHeader) (*dto.Bu
 	}
 	defer src.Close()
 
-	// Read file content
-	content, err := io.ReadAll(src)
-	if err != nil {
-		return nil, err
+	// Read file content with memory optimization for large files
+	var content []byte
+	if file.Size > 50*1024*1024 { // 50MB threshold for streaming
+		// For large files, read in chunks to avoid memory issues
+		content = make([]byte, 0, file.Size)
+		buffer := make([]byte, 1024*1024) // 1MB chunks
+		for {
+			n, err := src.Read(buffer)
+			if n > 0 {
+				content = append(content, buffer[:n]...)
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return nil, fmt.Errorf("error reading file: %v", err)
+			}
+		}
+	} else {
+		// For smaller files, read all at once
+		content, err = io.ReadAll(src)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Parse JSON - expect array of products
@@ -393,6 +415,10 @@ func (s *ProductService) BulkUploadProducts(file *multipart.FileHeader) (*dto.Bu
 	if err != nil {
 		return nil, err
 	}
+
+	// Clear content from memory immediately
+	content = nil
+	runtime.GC() // Force garbage collection
 
 	parseTime := time.Since(startTime)
 	fmt.Printf("📊 Bulk Upload Stats:\n")

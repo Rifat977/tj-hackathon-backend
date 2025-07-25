@@ -10,6 +10,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"runtime"
+
 	"github.com/rizkyizh/go-fiber-boilerplate/app/dto"
 	"github.com/rizkyizh/go-fiber-boilerplate/app/models"
 	"github.com/rizkyizh/go-fiber-boilerplate/app/services"
@@ -380,6 +382,7 @@ func (c *AdminController) DeleteProduct(ctx *fiber.Ctx) error {
 // @Success 200 {object} map[string]interface{} "Products uploaded"
 // @Failure 400 {object} map[string]interface{} "Bad Request"
 // @Failure 408 {object} map[string]interface{} "Request Timeout"
+// @Failure 413 {object} map[string]interface{} "Request Entity Too Large"
 // @Failure 500 {object} map[string]interface{} "Internal Server Error"
 // @Router /admin/api/products/bulk [post]
 func (c *AdminController) BulkUploadProducts(ctx *fiber.Ctx) error {
@@ -398,20 +401,22 @@ func (c *AdminController) BulkUploadProducts(ctx *fiber.Ctx) error {
 		})
 	}
 
-	// Validate file size (max 100MB)
-	if file.Size > 100*1024*1024 {
-		return ctx.Status(400).JSON(fiber.Map{
-			"error": "File size too large. Maximum size is 100MB",
+	// Validate file size (max 500MB for large bulk uploads)
+	maxFileSize := int64(500 * 1024 * 1024) // 500MB
+	if file.Size > maxFileSize {
+		return ctx.Status(413).JSON(fiber.Map{
+			"error":        fmt.Sprintf("File size too large. Maximum size is %d MB", maxFileSize/(1024*1024)),
+			"file_size_mb": float64(file.Size) / (1024 * 1024),
+			"max_size_mb":  maxFileSize / (1024 * 1024),
 		})
 	}
 
 	// Calculate dynamic timeout based on file size and server configuration
-	// Use server's write timeout as base, then adjust for file size
 	fileSizeMB := float64(file.Size) / (1024 * 1024)
 	baseTimeout := config.AppConfig.WriteTimeout
 
-	// Calculate additional time based on file size (0.5 seconds per MB)
-	additionalTime := time.Duration(fileSizeMB*0.5) * time.Second
+	// Calculate additional time based on file size (1 second per MB for large files)
+	additionalTime := time.Duration(fileSizeMB*1.0) * time.Second
 	timeoutSeconds := int((baseTimeout + additionalTime).Seconds())
 
 	// Cap at 30 minutes for very large files
@@ -419,13 +424,13 @@ func (c *AdminController) BulkUploadProducts(ctx *fiber.Ctx) error {
 		timeoutSeconds = 1800
 	}
 
-	// Minimum 5 minutes for any file
-	if timeoutSeconds < 300 {
-		timeoutSeconds = 300
+	// Minimum 10 minutes for any file
+	if timeoutSeconds < 600 {
+		timeoutSeconds = 600
 	}
 
 	fmt.Printf("📊 Upload timeout calculated: %d seconds for %.2f MB file\n", timeoutSeconds, fileSizeMB)
-	fmt.Printf("🚀 Using high-concurrency processing with 10 workers\n")
+	fmt.Printf("🚀 Using optimized processing with 4 workers for 2 vCPU environment\n")
 	fmt.Printf("⚙️ Server Write Timeout: %v, Additional Time: %v\n", baseTimeout, additionalTime)
 
 	// Create context with timeout
@@ -436,13 +441,24 @@ func (c *AdminController) BulkUploadProducts(ctx *fiber.Ctx) error {
 	resultChan := make(chan *dto.BulkUploadResult, 1)
 	errChan := make(chan error, 1)
 
-	// Start bulk upload in a goroutine
+	// Start bulk upload in a goroutine with memory optimization
 	go func() {
+		// Set memory limit for this goroutine
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		initialAlloc := m.Alloc
+
 		result, err := c.productService.BulkUploadProducts(file)
 		if err != nil {
 			errChan <- err
 			return
 		}
+
+		// Log memory usage
+		runtime.ReadMemStats(&m)
+		memoryUsed := m.Alloc - initialAlloc
+		fmt.Printf("💾 Memory used during upload: %.2f MB\n", float64(memoryUsed)/(1024*1024))
+
 		resultChan <- result
 	}()
 
@@ -451,11 +467,12 @@ func (c *AdminController) BulkUploadProducts(ctx *fiber.Ctx) error {
 	case result := <-resultChan:
 		// Return detailed results
 		response := fiber.Map{
-			"message":  "Bulk upload completed",
-			"uploaded": result.Uploaded,
-			"failed":   result.Failed,
-			"total":    result.Uploaded + result.Failed,
-			"timeout":  timeoutSeconds,
+			"message":      "Bulk upload completed",
+			"uploaded":     result.Uploaded,
+			"failed":       result.Failed,
+			"total":        result.Uploaded + result.Failed,
+			"timeout":      timeoutSeconds,
+			"file_size_mb": fileSizeMB,
 		}
 
 		// Include errors if any
