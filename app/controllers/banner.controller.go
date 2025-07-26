@@ -24,20 +24,20 @@ func (c *BannerController) GetBanners(ctx *fiber.Ctx) error {
 		{
 			"id":    "1",
 			"name":  "Banner 1",
-			"image": "banner1.jpg",
-			"url":   "/assets/images/Banners/banner1.jpg",
+			"image": "banner1.webp",
+			"url":   "/assets/images/Banners/banner1.webp",
 		},
 		{
 			"id":    "2",
 			"name":  "Banner 2",
-			"image": "banner2.jpg",
-			"url":   "/assets/images/Banners/banner2.jpg",
+			"image": "banner2.webp",
+			"url":   "/assets/images/Banners/banner2.webp",
 		},
 		{
 			"id":    "3",
 			"name":  "Banner 3",
-			"image": "banner3.jpg",
-			"url":   "/assets/images/Banners/banner3.jpg",
+			"image": "banner3.webp",
+			"url":   "/assets/images/Banners/banner3.webp",
 		},
 	}
 
