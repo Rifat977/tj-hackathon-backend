@@ -540,6 +540,31 @@ paths:
       summary: Search products
       tags:
       - products
+  /api/statistics/download:
+    get:
+      description: Downloads a CSV file containing product statistics including totals, averages, and counts
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: CSV file containing product statistics
+          headers:
+            Content-Disposition:
+              description: Attachment header with filename
+              type: string
+            Content-Type:
+              description: CSV content type
+              type: string
+          schema:
+            type: file
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Download product statistics CSV
+      tags:
+      - statistics
 schemes:
 - http
 - https

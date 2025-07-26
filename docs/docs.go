@@ -577,6 +577,43 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/statistics/download": {
+            "get": {
+                "description": "Downloads a CSV file containing product statistics including totals, averages, and counts",
+                "produces": [
+                    "text/csv"
+                ],
+                "tags": [
+                    "statistics"
+                ],
+                "summary": "Download product statistics CSV",
+                "responses": {
+                    "200": {
+                        "description": "CSV file containing product statistics",
+                        "headers": {
+                            "Content-Disposition": {
+                                "description": "Attachment header with filename",
+                                "type": "string"
+                            },
+                            "Content-Type": {
+                                "description": "CSV content type",
+                                "type": "string"
+                            }
+                        },
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
